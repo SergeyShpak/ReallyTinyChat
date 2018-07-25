@@ -11,7 +11,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var rooms sync.Map
+var wsRooms sync.Map
+
+/*
 var rooms = make(map[string]*room)
+var wsRooms = make(map[*websocket.Conn]*room)
+*/
 
 type room struct {
 	name      string
@@ -33,7 +39,6 @@ func Connect(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	log.Printf("OK!")
 }
 
 func createConnection(w http.ResponseWriter, r *http.Request) error {
@@ -52,15 +57,33 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 		listenToMessages(ws)
 		wg.Done()
 	}()
-	log.Println("Here1")
 	wg.Wait()
 	return nil
 }
 
 func listenToMessages(ws *websocket.Conn) {
+	wsRooms.Store(ws, &room{})
 	for {
 		msg := &types.Message{}
+		_, ok := wsRooms.Load(ws)
+		if !ok {
+			ws.Close()
+			break
+		}
 		if err := ws.ReadJSON(msg); err != nil {
+			closeErr, ok := err.(*websocket.CloseError)
+			if ok {
+				log.Println("need to close the room: ", closeErr.Code)
+				r, ok := wsRooms.Load(ws)
+				if !ok {
+					log.Println("Oops, that does not look good...")
+					break
+				}
+				if err := closeRoom(ws, r.(*room)); err != nil {
+					log.Println("error during room close: ", err)
+				}
+				break
+			}
 			log.Println("an error occurred during message reading: ", err)
 			continue
 		}
@@ -92,5 +115,26 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 	default:
 		return fmt.Errorf("type \"%s\" is unknown", t)
 	}
+	return nil
+}
+
+func closeRoom(ws *websocket.Conn, r *room) error {
+	closeMsg, err := types.NewMessageClose("That's all, folks!")
+	if err != nil {
+		return err
+	}
+	connToInform := r.connector.conn
+	if r.connectee.conn == ws {
+		connToInform = r.connector.conn
+	}
+	if err := connToInform.WriteJSON(closeMsg); err != nil {
+		return err
+	}
+	if err := ws.Close(); err != nil {
+		return err
+	}
+	wsRooms.Delete(connToInform)
+	wsRooms.Delete(ws)
+	rooms.Delete(r.name)
 	return nil
 }

@@ -22,29 +22,32 @@ func HandleHello(ws *websocket.Conn, msg *types.Hello) {
 }
 
 func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
-	room, ok := rooms[msg.Room]
+	r, ok := rooms.Load(msg.Room)
 	if !ok {
 		createRoom(ws, msg)
 		return sendHelloOKMessage(ws, msg)
 	}
-	if err := enterRoom(ws, msg, room); err != nil {
+	if err := enterRoom(ws, msg, r.(*room)); err != nil {
 		return err
 	}
-	return sendRoomInfoMessage(room)
+	return sendRoomInfoMessage(r.(*room))
 }
 
 func createRoom(ws *websocket.Conn, msg *types.Hello) {
-	rooms[msg.Room] = &room{
+	r := &room{
 		name: msg.Room,
 		connector: &connection{
 			login: msg.Login,
 			conn:  ws,
 		},
 	}
+	rooms.Store(msg.Room, r)
+	wsRooms.Store(ws, r)
 	log.Printf("%s created a room %s\n", msg.Login, msg.Room)
 }
 
 func enterRoom(ws *websocket.Conn, msg *types.Hello, r *room) error {
+	wsRooms.Store(ws, r)
 	if r.connectee != nil {
 		return fmt.Errorf("conflict")
 	}

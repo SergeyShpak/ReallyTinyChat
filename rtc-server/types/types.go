@@ -36,6 +36,10 @@ type Ice struct {
 	Room      string
 }
 
+type Close struct {
+	Message string
+}
+
 type Error struct {
 	Hint string
 	Code int
@@ -64,6 +68,13 @@ func NewMessageOffer(payload *Offer) (*Message, error) {
 
 func NewMessageIce(payload *Ice) (*Message, error) {
 	return createMessage(payload, "ICE")
+}
+
+func NewMessageClose(message string) (*Message, error) {
+	payload := &Close{
+		Message: message,
+	}
+	return createMessage(payload, "CLOSE")
 }
 
 func createMessage(payload interface{}, msgType string) (*Message, error) {
