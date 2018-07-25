@@ -21,6 +21,8 @@ class ChatArea extends Component<Props.IChatAreaProps, {
     super(props)
     this.onMessageChange = this.onMessageChange.bind(this)
     this.onSendClick = this.onSendClick.bind(this)
+    this.onCloseChat = this.onCloseChat.bind(this)
+
     const messagesQueue: EventedArray = new EventedArray(() => {
       const msg = this.state.messagesQueue.Stack.shift()
       this.setState({chatMessages: this.state.chatMessages + "\n" + msg.from + "> " + msg.msg})
@@ -35,6 +37,10 @@ class ChatArea extends Component<Props.IChatAreaProps, {
       messagesQueue,
       rows: 15,
     }
+  }
+
+  public componentDidMount() {
+    this.state.client.SetOnClose(this.onCloseChat)
   }
 
   public render() {
@@ -61,12 +67,15 @@ class ChatArea extends Component<Props.IChatAreaProps, {
     )
   }
 
+  private onCloseChat(e: CloseEvent) {
+    this.props.closeChat()
+  }
+
   private onMessageChange(e) {
     this.setState({message: e.target.value})
   } 
 
   private onSendClick() {
-    console.log(this.state.client)
     this.state.client.SendOnDataChannel(this.state.message)
     this.setState({message: ""})
   }

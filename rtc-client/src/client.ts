@@ -55,6 +55,7 @@ export class WSClient {
   private login: string = ""
   private messagesQueue: EventedArray
   private offerReceived: boolean = false
+  private onClose: (e: CloseEvent) => void
   private partner: string = ""
   private room: string = ""
 
@@ -190,6 +191,11 @@ export class WSClient {
     this.messagesQueue = messagesQueue
   }
 
+  public SetOnClose(f: (e: CloseEvent) => void) {
+    this.rtcDataChannel.onclose = f
+    this.onClose = f
+  }
+
   private send(msg: IWsMessage) {
     this.ws.send(JSON.stringify(msg));
   }
@@ -200,7 +206,6 @@ export class WSClient {
   }
 
   private rtcHandleReceiveMessage(e: MessageEvent) {
-    console.log("Message!")
     clientInstance.messagesQueue.push({from: clientInstance.partner, msg: e.data})
   }
 
@@ -275,12 +280,17 @@ export class WSClient {
           )
           return
         }
-        console.log("WTF")
         return
       case "ICE":
         const candidatePayload = JSON.parse(msg.Message) as IIceCandidate
         clientInstance.AddIceCandidate(JSON.parse(candidatePayload.Candidate) as RTCIceCandidate)
         return
+      case "CLOSE":
+        if (!!this.rtcDataChannel && !!this.onClose) {
+          this.rtcDataChannel.close()
+          this.onClose(null)
+        }
+        break
       default:
         throw Error("Bad message type: " + msg.Type)
     }

@@ -21,6 +21,7 @@ class App extends React.Component<{}, {
       state: 0,
     }
     this.onLogin = this.onLogin.bind(this);
+    this.onChatClose = this.onChatClose.bind(this);
   }
 
   public render() {
@@ -33,7 +34,7 @@ class App extends React.Component<{}, {
         {this.state.state === 0 ?
           <Login onLogin={this.onLogin}/> :
           this.state.state === 1 ?
-          <StandBy />: <Chat client={this.state.client}/>
+          <StandBy />: <Chat client={this.state.client} closeChat={this.onChatClose}/>
         }
         
       </div>
@@ -41,16 +42,19 @@ class App extends React.Component<{}, {
   }
 
   private onLogin(client: Client.WSClient) {
-    this.setState(s => ({state: 1, client}))
+    this.setState({state: 1, client})
     const self = this
     const interval = setInterval(() => {
       if (self.state.client.State() === "open") {
         self.setState({state: 2})
         clearInterval(interval)
-        console.log("Bye-bye")
         return
       }
     }, 300)
+  }
+
+  private onChatClose() {
+    this.setState({state: 0})
   }
 }
 

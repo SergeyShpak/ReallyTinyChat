@@ -10,8 +10,10 @@ export interface IContactsProps {
 
 export interface IChatProps {
   client: Client.WSClient
+  closeChat: () => void
 }
 
 export interface IChatAreaProps {
   client: Client.WSClient
+  closeChat: () => void
 }
