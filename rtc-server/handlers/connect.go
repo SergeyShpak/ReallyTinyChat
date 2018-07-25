@@ -3,63 +3,94 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
+	"github.com/gorilla/websocket"
 )
 
-var connections = make(map[string]*connection, 0)
+var rooms = make(map[string]*room)
+
+type room struct {
+	name      string
+	connector *connection
+	connectee *connection
+}
 
 type connection struct {
-	username string
+	login string
+	conn  *websocket.Conn
 }
 
 func Connect(w http.ResponseWriter, r *http.Request) {
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("err while reading request body: %v", err)
+	if err := createConnection(w, r); err != nil {
+		log.Printf("could not create a connection: %v", err)
 		WriteResponse(w, &Response{
 			Status:  http.StatusInternalServerError,
-			Message: fmt.Sprintf("err while reading request body: %v", err),
+			Message: fmt.Sprintf("could not create a connection: %v", err),
 		})
 		return
 	}
-	req := &types.ConnectionRequest{}
-	if err = json.Unmarshal(b, req); err != nil {
-		log.Printf("err while unmarshalling request body: %v", err)
-		WriteResponse(w, &Response{
-			Status:  http.StatusBadRequest,
-			Message: fmt.Sprintf("err while unmarshalling request body: %v", err),
-		})
-		return
-	}
-	if err = checkConnectionRequest(req); err != nil {
-		log.Printf("request is invalid: %v", err)
-		WriteResponse(w, &Response{
-			Status:  http.StatusConflict,
-			Message: fmt.Sprintf("request is invalid: %v", err),
-		})
-		return
-	}
-	createConnection(req)
-	WriteResponse(w, &Response{
-		Status: http.StatusCreated,
-	})
 	log.Printf("OK!")
 }
 
-func checkConnectionRequest(req *types.ConnectionRequest) error {
-	if _, ok := connections[req.Username]; ok {
-		return fmt.Errorf("username already exists")
+func createConnection(w http.ResponseWriter, r *http.Request) error {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
 	}
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		listenToMessages(ws)
+		wg.Done()
+	}()
+	log.Println("Here1")
+	wg.Wait()
 	return nil
 }
 
-func createConnection(req *types.ConnectionRequest) {
-	conn := &connection{
-		username: req.Username,
+func listenToMessages(ws *websocket.Conn) {
+	for {
+		msg := &types.Message{}
+		if err := ws.ReadJSON(msg); err != nil {
+			log.Println("an error occurred during message reading: ", err)
+			continue
+		}
+		if err := handleMessage(ws, msg); err != nil {
+			log.Println("an error occurred during message handling: ", err)
+			continue
+		}
 	}
-	connections[req.Username] = conn
+}
+
+func handleMessage(ws *websocket.Conn, msg *types.Message) error {
+	t := msg.Type
+	switch t {
+	case "HELLO":
+		log.Println("HELLO message received")
+		helloMsg := &types.Hello{}
+		json.Unmarshal([]byte(msg.Message), helloMsg)
+		HandleHello(ws, helloMsg)
+	case "OFFER":
+		log.Println("OFFER message received")
+		offerMsg := &types.Offer{}
+		json.Unmarshal([]byte(msg.Message), offerMsg)
+		HandleOffer(ws, offerMsg)
+	case "ICE":
+		log.Println("ICE message received")
+		iceMsg := &types.Ice{}
+		json.Unmarshal([]byte(msg.Message), iceMsg)
+		HandleIce(ws, iceMsg)
+	default:
+		return fmt.Errorf("type \"%s\" is unknown", t)
+	}
+	return nil
 }

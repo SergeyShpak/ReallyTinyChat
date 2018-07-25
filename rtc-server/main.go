@@ -4,27 +4,38 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/cors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/handlers"
-	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/routing"
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatalf("Run failed with an error: %v", err)
+	run()
+}
+
+func run() {
+	//srv := getDefaultServer(nil)
+	//http.Handle("/", )
+	http.HandleFunc("/conn", handlers.Connect)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
 	}
 }
 
-func run() error {
-	r := routing.NewRouter()
-	r.HandleFunc("/conn", routing.HttpMethodPost, handlers.Connect)
-	srv := getDefaultServer(r)
-	err := srv.ListenAndServe()
-	return err
-}
-
 func getDefaultServer(r http.Handler) *http.Server {
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "PUT", "POST", "DELETE", "PATCH"},
+		AllowedHeaders: []string{
+			"content-type",
+			"cache-control",
+		},
+		ExposedHeaders: []string{
+			"content-type",
+		},
+	})
 	return &http.Server{
-		Handler: r,
+		Handler: corsHandler.Handler(r),
 		Addr:    ":8080",
 	}
 }
