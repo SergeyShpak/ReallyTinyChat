@@ -17,3 +17,7 @@ export interface IChatAreaProps {
   client: Client.WSClient
   closeChat: () => void
 }
+
+export interface IErrorBoundaryProps {
+  onError: () => void
+}

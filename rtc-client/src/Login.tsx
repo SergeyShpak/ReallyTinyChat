@@ -63,7 +63,6 @@ class Login extends Component<Props.ILoginProps, {
       await client.Connect(this.state.login, this.state.room)
       this.props.onLogin(client)
     } catch (e) {
-      console.log(e)
       this.setState({login: "", step: 0, disable: false})
     }
   }

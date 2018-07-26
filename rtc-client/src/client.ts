@@ -43,6 +43,11 @@ interface IIceCandidate {
   Candidate: string
 }
 
+interface IError {
+  Code: number,
+  Hint: string
+}
+
 const config = null
 
 let clientInstance: WSClient
@@ -290,7 +295,11 @@ export class WSClient {
           this.rtcDataChannel.close()
           this.onClose(null)
         }
-        break
+        return
+      case "ERROR":
+        const error = JSON.parse(msg.Message) as IError
+        alert("An error occurred: " + error.Hint)
+        return
       default:
         throw Error("Bad message type: " + msg.Type)
     }

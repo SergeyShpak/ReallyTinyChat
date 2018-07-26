@@ -2,6 +2,7 @@ import * as React from 'react';
 import './App.css';
 import Chat from './Chat/Chat';
 import * as Client from './client';
+import ErrorBoundary from './ErrorBoundary';
 import Login from './Login';
 import StandBy from './StandBy';
 
@@ -22,6 +23,7 @@ class App extends React.Component<{}, {
     }
     this.onLogin = this.onLogin.bind(this);
     this.onChatClose = this.onChatClose.bind(this);
+    this.onError = this.onError.bind(this);
   }
 
   public render() {
@@ -31,12 +33,13 @@ class App extends React.Component<{}, {
           <img src={logo} className="App-logo" alt="logo" />
           <h1 className="App-title">Welcome to ReallyTinyChat</h1>
         </header>
+        <ErrorBoundary onError={this.onError}>
         {this.state.state === 0 ?
           <Login onLogin={this.onLogin}/> :
           this.state.state === 1 ?
           <StandBy />: <Chat client={this.state.client} closeChat={this.onChatClose}/>
         }
-        
+        </ErrorBoundary>
       </div>
     );
   }
@@ -54,6 +57,10 @@ class App extends React.Component<{}, {
   }
 
   private onChatClose() {
+    this.setState({state: 0})
+  }
+
+  private onError() {
     this.setState({state: 0})
   }
 }
