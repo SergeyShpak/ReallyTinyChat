@@ -7,17 +7,13 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
 )
 
 var rooms sync.Map
 var wsRooms sync.Map
-
-/*
-var rooms = make(map[string]*room)
-var wsRooms = make(map[*websocket.Conn]*room)
-*/
 
 type room struct {
 	name      string
@@ -43,13 +39,14 @@ func Connect(w http.ResponseWriter, r *http.Request) {
 
 func createConnection(w http.ResponseWriter, r *http.Request) error {
 	upgrader := websocket.Upgrader{
+		// TODO(SSH): what about origins?
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return err
+		return errors.NewServerError(500, fmt.Sprintf("upgrader failed: %v", err))
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -113,7 +110,14 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 		json.Unmarshal([]byte(msg.Message), iceMsg)
 		HandleIce(ws, iceMsg)
 	default:
-		return fmt.Errorf("type \"%s\" is unknown", t)
+		servErr := errors.NewServerError(400, fmt.Sprintf("the server does not know about \"%s\" message type", t))
+		errMsg, err := types.NewMessageError(servErr)
+		if err != nil {
+			return err
+		}
+		log.Println("An error occurred: ", servErr)
+		ws.WriteJSON(errMsg)
+		return nil
 	}
 	return nil
 }
@@ -123,12 +127,19 @@ func closeRoom(ws *websocket.Conn, r *room) error {
 	if err != nil {
 		return err
 	}
-	connToInform := r.connector.conn
-	if r.connectee.conn == ws {
-		connToInform = r.connector.conn
+	var connToInform *websocket.Conn
+	if r != nil {
+		if r.connector != nil {
+			connToInform = r.connector.conn
+		}
+		if r.connectee != nil && r.connectee.conn == ws {
+			connToInform = r.connector.conn
+		}
 	}
-	if err := connToInform.WriteJSON(closeMsg); err != nil {
-		return err
+	if connToInform != nil {
+		if err := connToInform.WriteJSON(closeMsg); err != nil {
+			return err
+		}
 	}
 	if err := ws.Close(); err != nil {
 		return err

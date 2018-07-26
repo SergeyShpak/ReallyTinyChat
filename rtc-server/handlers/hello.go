@@ -3,19 +3,25 @@ package handlers
 import (
 	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
 )
 
 func HandleHello(ws *websocket.Conn, msg *types.Hello) {
 	if err := addToConnections(ws, msg); err != nil {
-		errMsg := &types.Error{
-			Hint: err.Error(),
-			Code: http.StatusConflict,
+		servErr, ok := err.(*errors.ServerError)
+		if !ok {
+			servErr = errors.NewServerError(500, fmt.Sprintf("%s", err))
+		}
+		errMsg, err := types.NewMessageError(servErr)
+		if err != nil {
+			fmt.Println("error occurred: ", err)
+			return
 		}
 		ws.WriteJSON(errMsg)
+		log.Println(servErr)
 		return
 	}
 	return
@@ -49,7 +55,10 @@ func createRoom(ws *websocket.Conn, msg *types.Hello) {
 func enterRoom(ws *websocket.Conn, msg *types.Hello, r *room) error {
 	wsRooms.Store(ws, r)
 	if r.connectee != nil {
-		return fmt.Errorf("conflict")
+		return fmt.Errorf("cannot join the room %s as it is already full", r.name)
+	}
+	if r.connector.login == msg.Login {
+		return fmt.Errorf("change your login \"%s\" as it is the same as that of the room owner", msg.Login)
 	}
 	r.connectee = &connection{
 		login: msg.Login,

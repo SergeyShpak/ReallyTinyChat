@@ -2,6 +2,8 @@ package types
 
 import (
 	"encoding/json"
+
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 )
 
 type Message struct {
@@ -77,10 +79,18 @@ func NewMessageClose(message string) (*Message, error) {
 	return createMessage(payload, "CLOSE")
 }
 
+func NewMessageError(err *errors.ServerError) (*Message, error) {
+	payload := &Error{
+		Code: err.Code,
+		Hint: err.Hint,
+	}
+	return createMessage(payload, "ERROR")
+}
+
 func createMessage(payload interface{}, msgType string) (*Message, error) {
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, errors.NewServerError(500, err.Error())
 	}
 	msg := &Message{
 		Type:    msgType,
