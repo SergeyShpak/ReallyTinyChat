@@ -18,27 +18,31 @@ go build && ./rtc-server
 
 ### RTC-client
 
-1. cd to the __rtc-client__ directory:
+1. `cd` to the __rtc-client__ directory:
 
 ```
 cd rtc-client
 ```
 
-2. Install the dependencies
+2. Install the dependencies:
 
 ```
 npm install
 ```
 
-3. To run the frontend in the development mode execute:
+3. To run the frontend in the development mode:
 
 ```
 npm start
 ```
 
-To run the frontend in the release mode execute:
+To run the frontend in the release mode:
 
-TODO: add commands
+```
+npm build && \
+npm install serve && \
+npx serve -s build
+```
 
 ### Prerequisites
 
