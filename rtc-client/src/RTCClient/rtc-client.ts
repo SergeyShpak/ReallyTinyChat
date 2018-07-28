@@ -31,7 +31,7 @@ interface IRoomInfoMessage {
   Room: string,
 }
 
-interface IOffer {
+interface IOfferMessage {
   Login: string
   Offer: string
   IsResponse: boolean
@@ -258,14 +258,54 @@ export class RTCClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  private onServerMessage(e: MessageEvent) {
+  private handleHelloOK(msg: IHelloOKMessage) {
+    this.login = msg.Login
+    this.room = msg.Room
+  }
+
+  private handleOffer(msg: IOfferMessage) {
+    if (this.isOfferer && msg.IsResponse) {
+      const offer = JSON.parse(msg.Offer) as RTCSessionDescriptionInit
+      this.FinalizeOffer(offer).then(() =>
+        this.Wait())
+      return
+    }
+    if (!this.isOfferer && !msg.IsResponse) {
+      const offer = JSON.parse(msg.Offer) as RTCSessionDescriptionInit
+      this.SendOfferResponse(offer).then(() =>
+        this.Wait()
+      )
+      return
+    }
+  }
+
+  private handleIce(msg: IIceCandidate) {
+    this.AddIceCandidate(JSON.parse(msg.Candidate) as RTCIceCandidate)
+  }
+
+  private handleClose() {
+    if (!!this.rtcDataChannel && !!this.onClose) {
+      this.rtcDataChannel.close()
+      this.onClose(null)
+    }
+    return
+  }
+
+  private handleError(msg: IError) {
+    console.log(msg)
+    const closeEvent = new CloseEvent("ERROR code received", {code: 1002, reason: msg.Hint})
+    this.close(closeEvent)
+    return
+  }
+
+  private handleMessage(e: MessageEvent) {
     const msg = JSON.parse(e.data) as IWsMessage
     switch(msg.Type) {
       case "HELLOOK":
         const helloResp = JSON.parse(msg.Message) as IHelloOKMessage;
-        clientInstance.login = helloResp.Login
-        clientInstance.room = helloResp.Room
+        this.handleHelloOK(helloResp);
         return
+      /*
       case "ROOMINFO":
         const roomInfo = JSON.parse(msg.Message) as IRoomInfoMessage
         clientInstance.room = roomInfo.Room
@@ -277,45 +317,33 @@ export class RTCClient {
         clientInstance.partner = roomInfo.Connector
         clientInstance.SendOffer()
         return
+      */
       case "OFFER":
-        if (clientInstance.offerReceived) {
+        if (this.offerReceived) {
           return
         }
-        clientInstance.offerReceived = true
-        const offerPayload = JSON.parse(msg.Message) as IOffer
-        if (clientInstance.isOfferer && offerPayload.IsResponse) {
-          const offer = JSON.parse(offerPayload.Offer) as RTCSessionDescriptionInit
-          clientInstance.FinalizeOffer(offer).then(() =>
-            clientInstance.Wait())
-          return
-        }
-        if (!clientInstance.isOfferer && !offerPayload.IsResponse) {
-          const offer = JSON.parse(offerPayload.Offer) as RTCSessionDescriptionInit
-          clientInstance.SendOfferResponse(offer).then(() =>
-            clientInstance.Wait()
-          )
-          return
-        }
+        this.offerReceived = true
+        const offerPayload = JSON.parse(msg.Message) as IOfferMessage
+        this.handleOffer(offerPayload)
         return
       case "ICE":
         const candidatePayload = JSON.parse(msg.Message) as IIceCandidate
-        clientInstance.AddIceCandidate(JSON.parse(candidatePayload.Candidate) as RTCIceCandidate)
+        this.handleIce(candidatePayload)
         return
       case "CLOSE":
-        if (!!this.rtcDataChannel && !!this.onClose) {
-          this.rtcDataChannel.close()
-          this.onClose(null)
-        }
+        this.handleClose()
         return
       case "ERROR":
         const error = JSON.parse(msg.Message) as IError
-        console.log(error)
-        const closeEvent = new CloseEvent("ERROR code received", {code: 1002, reason: error.Hint})
-        clientInstance.close(closeEvent)
+        this.handleError(error)
         return
       default:
         throw Error("Bad message type: " + msg.Type)
     }
+  }
+
+  private onServerMessage(e: MessageEvent) {
+    clientInstance.handleMessage(e)
   }
 
   private throwError(e: any) {
@@ -327,5 +355,7 @@ export class RTCClient {
     console.log("an error occurred: ", e)
   }
 }
+
+
 
 export default RTCClient
