@@ -1,7 +1,8 @@
 import { Component } from 'react';
 import * as React from 'react';
-import * as Client from './client';
 import * as Props from './props';
+import RTCClient from './RTCClient/rtc-client';
+
 
 const steps = {
   0: 'Login',
@@ -57,14 +58,30 @@ class Login extends Component<Props.ILoginProps, {
   }
 
   private async onLoggingIn(e) {
-    try {
-      const client = new Client.WSClient()
-      this.setState({step: 1, disable: true})
-      await client.Connect(this.state.login, this.state.room)
-      this.props.onLogin(client)
-    } catch (e) {
+    const fallback = (err: Error) => {
+      const trace = console.trace()
+      console.log("[ERROR]: ", err, trace)
       this.setState({login: "", step: 0, disable: false})
     }
+    let client: RTCClient
+    try {
+      client = new RTCClient()
+      console.log("OK")
+      client.SetOnClose(this.props.onClientClose)
+    }
+    catch (err) {
+      fallback(err)
+      return
+    }
+    this.setState({step: 1, disable: true})
+    try {
+      await client.Connect(this.state.login, this.state.room)
+    }  
+    catch (err) {
+      fallback(err)
+      return
+    }
+    this.props.onLogin(client)
   }
 
   private async onChatRoomChange(e) {

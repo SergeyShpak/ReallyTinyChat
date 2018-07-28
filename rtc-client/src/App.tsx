@@ -1,9 +1,8 @@
 import * as React from 'react';
 import './App.css';
 import Chat from './Chat/Chat';
-import * as Client from './client';
-import ErrorBoundary from './ErrorBoundary';
 import Login from './Login';
+import RTCClient from './RTCClient/rtc-client';
 import StandBy from './StandBy';
 
 import 'bulma/css/bulma.css';
@@ -11,7 +10,7 @@ import logo from './logo.svg';
 
 
 class App extends React.Component<{}, {
-  client: Client.WSClient,
+  client: RTCClient,
   state: number
 }> {
 
@@ -33,18 +32,16 @@ class App extends React.Component<{}, {
           <img src={logo} className="App-logo" alt="logo" />
           <h1 className="App-title">Welcome to ReallyTinyChat</h1>
         </header>
-        <ErrorBoundary onError={this.onError}>
         {this.state.state === 0 ?
-          <Login onLogin={this.onLogin}/> :
+          <Login onLogin={this.onLogin} onClientClose={this.onError}/> :
           this.state.state === 1 ?
           <StandBy />: <Chat client={this.state.client} closeChat={this.onChatClose}/>
         }
-        </ErrorBoundary>
       </div>
     );
   }
 
-  private onLogin(client: Client.WSClient) {
+  private onLogin(client: RTCClient) {
     this.setState({state: 1, client})
     const self = this
     const interval = setInterval(() => {
@@ -61,6 +58,7 @@ class App extends React.Component<{}, {
   }
 
   private onError() {
+    console.log("Fired")
     this.setState({state: 0})
   }
 }

@@ -50,9 +50,9 @@ interface IError {
 
 const config = null
 
-let clientInstance: WSClient
+let clientInstance: RTCClient
 
-export class WSClient {
+export class RTCClient {
   public candidates: number = 0
 
   private isOfferer: boolean = undefined
@@ -78,6 +78,7 @@ export class WSClient {
     this.ws = new WebSocket(addr)
     clientInstance = this
 
+    this.ws.onerror = this.onWsError
     this.ws.onmessage = this.onServerMessage
   }
 
@@ -197,8 +198,21 @@ export class WSClient {
   }
 
   public SetOnClose(f: (e: CloseEvent) => void) {
-    this.rtcDataChannel.onclose = f
+    // this.rtcDataChannel.onclose = f
     this.onClose = f
+  }
+
+  private close(e?: CloseEvent) {
+    if (!!this.rtcDataChannel) {
+      this.rtcDataChannel.close()
+    }
+    if (!!this.rtcConn) {
+      this.rtcConn.close()
+    }
+    if (!!this.ws) {
+      this.ws.close()
+    }
+    this.onClose(e)
   }
 
   private send(msg: IWsMessage) {
@@ -248,11 +262,8 @@ export class WSClient {
     const msg = JSON.parse(e.data) as IWsMessage
     switch(msg.Type) {
       case "HELLOOK":
-        if (clientInstance.isOfferer !== undefined) {
-          return
-        }
-        clientInstance.isOfferer = false
         const helloResp = JSON.parse(msg.Message) as IHelloOKMessage;
+        clientInstance.login = helloResp.Login
         clientInstance.room = helloResp.Room
         return
       case "ROOMINFO":
@@ -298,10 +309,23 @@ export class WSClient {
         return
       case "ERROR":
         const error = JSON.parse(msg.Message) as IError
-        alert("An error occurred: " + error.Hint)
+        console.log(error)
+        const closeEvent = new CloseEvent("ERROR code received", {code: 1002, reason: error.Hint})
+        clientInstance.close(closeEvent)
         return
       default:
         throw Error("Bad message type: " + msg.Type)
     }
   }
+
+  private throwError(e: any) {
+    console.log("OK, will be throwing now")
+    throw(e)
+  }
+
+  private onWsError(e: ErrorEvent) {
+    console.log("an error occurred: ", e)
+  }
 }
+
+export default RTCClient

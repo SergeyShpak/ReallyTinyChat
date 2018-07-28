@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { Component } from 'react';
-import * as Client from '../client';
 import * as Props from '../props';
-
-import EventedArray from '../evented_array';
+import EventedArray from '../RTCClient/evented_array';
+import RTCClient from '../RTCClient/rtc-client';
 
 
 class ChatArea extends Component<Props.IChatAreaProps, {
@@ -14,7 +13,7 @@ class ChatArea extends Component<Props.IChatAreaProps, {
 
   message: string
   messagesQueue: EventedArray
-  client: Client.WSClient
+  client: RTCClient
 }>{
 
   constructor(props: Props.IChatAreaProps) {
