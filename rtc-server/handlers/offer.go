@@ -2,40 +2,23 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
 )
 
 func HandleOffer(ws *websocket.Conn, msg *types.Offer) error {
-	rInterface, ok := rooms.Load(msg.Room)
-	if !ok {
-		errMsg := "Room not found"
-		log.Println(errMsg)
-		return fmt.Errorf(errMsg)
+	partnerConn, err := getConnectionInRoom(msg.Room, msg.Partner)
+	if err != nil {
+		return err
 	}
-	r := rInterface.(*room)
 	repacked, err := types.NewMessageOffer(msg)
 	if err != nil {
-		errMsg := "Can't create a new message offer"
-		log.Println(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.NewServerError(500, "cannot forward an OFFER message")
 	}
-	if msg.IsResponse {
-		if r.connectee == nil {
-			errMsg := "Room is not full, no connectee"
-			log.Println(errMsg)
-			return fmt.Errorf(errMsg)
-		}
-		log.Println("Sending to: ", r.connectee.login)
-		return r.connectee.conn.WriteJSON(repacked)
+	if err := partnerConn.WS.WriteJSON(repacked); err != nil {
+		return errors.NewServerError(500, fmt.Sprintf("error occurred when sending an ICE message: %v", err))
 	}
-	if r.connector == nil {
-		errMsg := "Room is not full, no connector"
-		log.Println(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-	log.Println("Sending to: ", r.connector.login)
-	return r.connector.conn.WriteJSON(repacked)
+	return nil
 }

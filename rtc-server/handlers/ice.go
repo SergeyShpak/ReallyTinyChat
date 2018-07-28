@@ -2,28 +2,23 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
 )
 
 func HandleIce(ws *websocket.Conn, msg *types.Ice) error {
-	rInterface, ok := rooms.Load(msg.Room)
-	if !ok {
-		errMsg := "Room not found"
-		log.Println(errMsg)
-		return fmt.Errorf(errMsg)
+	partnerConn, err := getConnectionInRoom(msg.Room, msg.Partner)
+	if err != nil {
+		return err
 	}
-	r := rInterface.(*room)
 	repacked, err := types.NewMessageIce(msg)
 	if err != nil {
-		errMsg := "Can't create a new message ice"
-		log.Println(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.NewServerError(500, "cannot forward the ICE message")
 	}
-	if ws == r.connectee.conn {
-		return r.connector.conn.WriteJSON(repacked)
+	if err := partnerConn.WS.WriteJSON(repacked); err != nil {
+		return errors.NewServerError(500, fmt.Sprintf("error occurred when sending an ICE message: %v", err))
 	}
-	return r.connectee.conn.WriteJSON(repacked)
+	return nil
 }

@@ -31,11 +31,13 @@ type Offer struct {
 	Offer      string
 	IsResponse bool
 	Room       string
+	Partner    string
 }
 
 type Ice struct {
 	Candidate string
 	Room      string
+	Partner   string
 }
 
 type Close struct {

@@ -15,17 +15,6 @@ import (
 var rooms sync.Map
 var wsRooms sync.Map
 
-type room struct {
-	name      string
-	connector *connection
-	connectee *connection
-}
-
-type connection struct {
-	login string
-	conn  *websocket.Conn
-}
-
 func Connect(w http.ResponseWriter, r *http.Request) {
 	if err := createConnection(w, r); err != nil {
 		log.Printf("could not create a connection: %v", err)
@@ -59,36 +48,49 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 }
 
 func listenToMessages(ws *websocket.Conn) {
-	wsRooms.Store(ws, &room{})
+	// wsRooms.Store(ws, &room{})
 	for {
 		msg := &types.Message{}
-		_, ok := wsRooms.Load(ws)
-		if !ok {
-			ws.Close()
-			break
-		}
 		if err := ws.ReadJSON(msg); err != nil {
-			closeErr, ok := err.(*websocket.CloseError)
-			if ok {
-				log.Println("need to close the room: ", closeErr.Code)
-				r, ok := wsRooms.Load(ws)
-				if !ok {
-					log.Println("Oops, that does not look good...")
-					break
-				}
-				if err := closeRoom(ws, r.(*room)); err != nil {
-					log.Println("error during room close: ", err)
-				}
-				break
-			}
-			log.Println("an error occurred during message reading: ", err)
-			continue
+			handleListenMsgError(err)
 		}
 		if err := handleMessage(ws, msg); err != nil {
 			log.Println("an error occurred during message handling: ", err)
 			continue
 		}
+		/*
+
+			_, ok := wsRooms.Load(ws)
+			if !ok {
+				ws.Close()
+				break
+			}
+		*/
+		/*
+			if err := ws.ReadJSON(msg); err != nil {
+				closeErr, ok := err.(*websocket.CloseError)
+				if ok {
+					log.Println("need to close the room: ", closeErr.Code)
+					r, ok := wsRooms.Load(ws)
+					if !ok {
+						log.Println("Oops, that does not look good...")
+						break
+					}
+					if err := closeRoom(ws, r.(*room)); err != nil {
+						log.Println("error during room close: ", err)
+					}
+					break
+				}
+				log.Println("an error occurred during message reading: ", err)
+				continue
+			}
+		*/
+
 	}
+}
+
+func handleListenMsgError(err error) {
+	log.Println("error occurred: ", err)
 }
 
 func handleMessage(ws *websocket.Conn, msg *types.Message) error {
@@ -122,6 +124,7 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 	return nil
 }
 
+/*
 func closeRoom(ws *websocket.Conn, r *room) error {
 	closeMsg, err := types.NewMessageClose("That's all, folks!")
 	if err != nil {
@@ -149,3 +152,4 @@ func closeRoom(ws *websocket.Conn, r *room) error {
 	rooms.Delete(r.name)
 	return nil
 }
+*/
