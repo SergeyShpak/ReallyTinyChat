@@ -1,7 +1,11 @@
-import * as Client from './client';
+import RTCClient from './RTCClient/rtc-client';
 
 export interface ILoginProps{
-  onLogin: (login: Client.WSClient) => void
+  onLogin: (login: RTCClient) => void
+  onClientClose: (e: CloseEvent) => void
+  onOpenDataChannel: () => void
+  onDataChannelClose: (e: CloseEvent) => void
+  onServerError: (code: number, hint: string) => void
 }
 
 export interface IContactsProps {
@@ -9,13 +13,13 @@ export interface IContactsProps {
 }
 
 export interface IChatProps {
-  client: Client.WSClient
-  closeChat: () => void
+  active: boolean
+  client: RTCClient
 }
 
 export interface IChatAreaProps {
-  client: Client.WSClient
-  closeChat: () => void
+  active: boolean
+  client: RTCClient
 }
 
 export interface IErrorBoundaryProps {

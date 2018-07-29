@@ -17,25 +17,23 @@ type Hello struct {
 }
 
 type HelloOK struct {
-	Login string
-	Room  string
-}
-
-type RoomInfo struct {
-	Connector string
-	Connectee string
-	Room      string
+	Login    string
+	Room     string
+	Partners []string
 }
 
 type Offer struct {
-	Offer      string
-	IsResponse bool
+	Login      string
 	Room       string
+	Partner    string
+	IsResponse bool
+	Offer      string
 }
 
 type Ice struct {
 	Candidate string
 	Room      string
+	Partner   string
 }
 
 type Close struct {
@@ -47,14 +45,16 @@ type Error struct {
 	Code int
 }
 
-func NewMessageHelloOK(login string, room string) (*Message, error) {
+func NewMessageHelloOK(login string, room *Room) (*Message, error) {
 	payload := &HelloOK{
-		Login: login,
-		Room:  room,
+		Login:    login,
+		Room:     room.Name,
+		Partners: room.ListConnections(),
 	}
 	return createMessage(payload, "HELLOOK")
 }
 
+/*
 func NewMessageRoomInfo(connector string, connectee string, room string) (*Message, error) {
 	payload := &RoomInfo{
 		Connector: connector,
@@ -63,6 +63,7 @@ func NewMessageRoomInfo(connector string, connectee string, room string) (*Messa
 	}
 	return createMessage(payload, "ROOMINFO")
 }
+*/
 
 func NewMessageOffer(payload *Offer) (*Message, error) {
 	return createMessage(payload, "OFFER")

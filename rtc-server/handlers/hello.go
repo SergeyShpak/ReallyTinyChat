@@ -17,75 +17,79 @@ func HandleHello(ws *websocket.Conn, msg *types.Hello) {
 		}
 		errMsg, err := types.NewMessageError(servErr)
 		if err != nil {
-			fmt.Println("error occurred: ", err)
+			log.Println("error occurred: ", err)
 			return
 		}
 		ws.WriteJSON(errMsg)
 		log.Println(servErr)
 		return
 	}
+	if err := sendHelloOKMessage(ws, msg); err != nil {
+		log.Println("error occurred: ", err)
+		return
+	}
+	log.Println("HELLOOK message sent")
 	return
 }
 
 func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
-	r, ok := rooms.Load(msg.Room)
-	if !ok {
-		createRoom(ws, msg)
-		return sendHelloOKMessage(ws, msg)
+	r, err := getRoom(msg.Room)
+	if err != nil {
+		log.Println("error occurred: ", err)
+		servErr, ok := err.(*errors.ServerError)
+		if !ok {
+			return errors.NewServerError(500, fmt.Sprintf("could not cast error %v to a ServerError", err))
+		}
+		if servErr.Code == 404 {
+			r, err = createNewRoom(msg.Room)
+			if err != nil {
+				return err
+			}
+			addRoom(r)
+		}
+		if servErr.Code != 404 {
+			return servErr
+		}
 	}
-	if err := enterRoom(ws, msg, r.(*room)); err != nil {
+	if r.IsConnected(msg.Login) {
+		return errors.NewServerError(409, fmt.Sprintf("user %s is already connected", msg.Login))
+	}
+	conn := &types.Connection{
+		Login: msg.Login,
+		WS:    ws,
+	}
+	user := &types.User{
+		Login: msg.Login,
+		Room:  msg.Room,
+	}
+	users.Store(ws, user)
+	if err = r.AddConnection(conn); err != nil {
 		return err
 	}
-	return sendRoomInfoMessage(r.(*room))
-}
-
-func createRoom(ws *websocket.Conn, msg *types.Hello) {
-	r := &room{
-		name: msg.Room,
-		connector: &connection{
-			login: msg.Login,
-			conn:  ws,
-		},
-	}
-	rooms.Store(msg.Room, r)
-	wsRooms.Store(ws, r)
-	log.Printf("%s created a room %s\n", msg.Login, msg.Room)
-}
-
-func enterRoom(ws *websocket.Conn, msg *types.Hello, r *room) error {
-	wsRooms.Store(ws, r)
-	if r.connectee != nil {
-		return fmt.Errorf("cannot join the room %s as it is already full", r.name)
-	}
-	if r.connector.login == msg.Login {
-		return fmt.Errorf("change your login \"%s\" as it is the same as that of the room owner", msg.Login)
-	}
-	r.connectee = &connection{
-		login: msg.Login,
-		conn:  ws,
-	}
-	log.Printf("%s entered a room with %s\n", r.connectee.login, r.connector.login)
 	return nil
+}
+
+func createNewRoom(name string) (*types.Room, error) {
+	r, err := types.NewRoom(name)
+	if err != nil {
+		servErr, ok := err.(*errors.ServerError)
+		if !ok {
+			return nil, errors.NewServerError(500, fmt.Sprintf("could not cast an error %v to the ServerError type", err))
+		}
+		return nil, servErr
+	}
+	return r, nil
 }
 
 func sendHelloOKMessage(ws *websocket.Conn, msg *types.Hello) error {
-	okMsg, err := types.NewMessageHelloOK(msg.Login, msg.Room)
+	r, err := getRoom(msg.Room)
 	if err != nil {
-		log.Println("Could not create a HelloOK message")
+		return err
+	}
+	okMsg, err := types.NewMessageHelloOK(msg.Login, r)
+	if err != nil {
 		return err
 	}
 	ws.WriteJSON(okMsg)
-	return nil
-}
-
-func sendRoomInfoMessage(r *room) error {
-	log.Println("Sending room info messages")
-	roomInfoMsg, err := types.NewMessageRoomInfo(r.connector.login, r.connectee.login, r.name)
-	if err != nil {
-		log.Println("Could not create a RoomInfo message")
-		return err
-	}
-	r.connector.conn.WriteJSON(roomInfoMsg)
-	r.connectee.conn.WriteJSON(roomInfoMsg)
 	return nil
 }

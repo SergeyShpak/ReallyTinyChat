@@ -1,7 +1,8 @@
 import { Component } from 'react';
 import * as React from 'react';
-import * as Client from './client';
 import * as Props from './props';
+import RTCClient from './RTCClient/rtc-client';
+
 
 const steps = {
   0: 'Login',
@@ -56,15 +57,15 @@ class Login extends Component<Props.ILoginProps, {
     );
   }
 
-  private async onLoggingIn(e) {
-    try {
-      const client = new Client.WSClient()
-      this.setState({step: 1, disable: true})
-      await client.Connect(this.state.login, this.state.room)
+  private async onLoggingIn(e: React.MouseEvent<HTMLInputElement>) {
+    const client = new RTCClient()
+    client.SetOnRTCConnection(() => {
       this.props.onLogin(client)
-    } catch (e) {
-      this.setState({login: "", step: 0, disable: false})
-    }
+    })
+    client.SetOnRTCDataChannelOpen(this.props.onOpenDataChannel)
+    client.SetOnServerError(this.props.onServerError)
+    client.SetOnClose(this.props.onDataChannelClose)
+    await client.Connect(this.state.login, this.state.room)
   }
 
   private async onChatRoomChange(e) {
