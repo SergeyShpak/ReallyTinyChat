@@ -20,6 +20,10 @@ func getRoom(name string) *types.Room {
 	return r
 }
 
+func addRoom(room *types.Room) {
+	rooms.Store(room.Name, room)
+}
+
 func getConnectionInRoom(roomName string, partner string) (*types.Connection, error) {
 	r := getRoom(roomName)
 	if r == nil {

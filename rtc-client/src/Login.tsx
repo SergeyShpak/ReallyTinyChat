@@ -57,31 +57,15 @@ class Login extends Component<Props.ILoginProps, {
     );
   }
 
-  private async onLoggingIn(e) {
-    const fallback = (err: Error) => {
-      const trace = console.trace()
-      console.log("[ERROR]: ", err, trace)
-      this.setState({login: "", step: 0, disable: false})
-    }
-    let client: RTCClient
-    try {
-      client = new RTCClient()
-      console.log("OK")
-      client.SetOnClose(this.props.onClientClose)
-    }
-    catch (err) {
-      fallback(err)
-      return
-    }
-    this.setState({step: 1, disable: true})
-    try {
-      await client.Connect(this.state.login, this.state.room)
-    }  
-    catch (err) {
-      fallback(err)
-      return
-    }
-    this.props.onLogin(client)
+  private async onLoggingIn(e: React.MouseEvent<HTMLInputElement>) {
+    const client = new RTCClient()
+    client.SetOnRTCConnection(() => {
+      this.props.onLogin(client)
+    })
+    client.SetOnRTCDataChannelOpen(() => {
+      this.props.onOpenDataChannel()
+    })
+    await client.Connect(this.state.login, this.state.room)
   }
 
   private async onChatRoomChange(e) {

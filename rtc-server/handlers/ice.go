@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
@@ -13,6 +14,7 @@ func HandleIce(ws *websocket.Conn, msg *types.Ice) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Received ICE message, forwarding to %s\n", msg.Partner)
 	repacked, err := types.NewMessageIce(msg)
 	if err != nil {
 		return errors.NewServerError(500, "cannot forward the ICE message")

@@ -49,3 +49,13 @@ func (r *Room) GetConnection(login string) *Connection {
 	}
 	return conn
 }
+
+func (r *Room) ListConnections() []string {
+	r.ConnectionsMux.Lock()
+	connections := make([]string, 0, len(r.Connections))
+	for c := range r.Connections {
+		connections = append(connections, c)
+	}
+	r.ConnectionsMux.Unlock()
+	return connections
+}

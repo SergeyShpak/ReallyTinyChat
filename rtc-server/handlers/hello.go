@@ -36,6 +36,7 @@ func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
 	r := getRoom(msg.Room)
 	if r == nil {
 		r = types.NewRoom(msg.Room)
+		addRoom(r)
 	}
 	if r.IsConnected(msg.Login) {
 		return errors.NewServerError(409, fmt.Sprintf("user %s is already connected", msg.Login))
@@ -49,7 +50,11 @@ func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
 }
 
 func sendHelloOKMessage(ws *websocket.Conn, msg *types.Hello) error {
-	okMsg, err := types.NewMessageHelloOK(msg.Login, msg.Room)
+	r := getRoom(msg.Room)
+	if r == nil {
+		return errors.NewServerError(500, fmt.Sprintf("could not find the room %s to send a message to", msg.Room))
+	}
+	okMsg, err := types.NewMessageHelloOK(msg.Login, r)
 	if err != nil {
 		return err
 	}
