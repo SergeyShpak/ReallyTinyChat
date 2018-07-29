@@ -19,45 +19,50 @@ type Room struct {
 	ConnectionsMux sync.RWMutex
 }
 
-func NewRoom(roomName string, opts ...*RoomOpts) *Room {
-	o := getRoomOpts(opts)
+func NewRoom(roomName string, opts ...*RoomOpts) (*Room, error) {
+	o, err := getRoomOpts(opts)
+	if err != nil {
+		return nil, err
+	}
 	r := &Room{
 		Name:        roomName,
 		Connections: make(map[string]*Connection),
 	}
-	// TODO(SSH): add errors
 	if o.Capacity < 2 {
-		return nil
+		return nil, errors.NewServerError(400, "room's capacity cannot be less than 2")
 	}
 	r.Capacity = o.Capacity
-	return r
+	return r, nil
 }
 
-func getRoomOpts(opts []*RoomOpts) *RoomOpts {
+func getRoomOpts(opts []*RoomOpts) (*RoomOpts, error) {
 	if len(opts) == 0 {
 		return &RoomOpts{
 			Capacity: 2,
-		}
+		}, nil
 	}
-	return opts[0]
+	if len(opts) == 1 {
+		return opts[1], nil
+	}
+	return nil, errors.NewServerError(500, fmt.Sprintf("too many (%d) options passed to the Room constructor", len(opts)))
 }
 
-func (r *Room) AddConnection(conn *Connection) {
+func (r *Room) AddConnection(conn *Connection) error {
 	if conn == nil {
-		return
+		return errors.NewServerError(500, fmt.Sprintf("trying to add a nil connection to the room \"%s\"", r.Name))
 	}
 	r.ConnectionsMux.Lock()
-	r.addConnection(conn)
+	err := r.addConnection(conn)
 	r.ConnectionsMux.Unlock()
-	return
+	return err
 }
 
-//TODO(SSH): add errors
-func (r *Room) addConnection(conn *Connection) {
+func (r *Room) addConnection(conn *Connection) error {
 	if len(r.Connections) >= r.Capacity {
-		return
+		return errors.NewServerError(400, fmt.Sprintf("room \"%s\" is full", r.Name))
 	}
 	r.Connections[conn.Login] = conn
+	return nil
 }
 
 func (r *Room) RemoveConnection(login string) {

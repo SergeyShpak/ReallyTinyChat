@@ -14,9 +14,9 @@ func HandleOffer(ws *websocket.Conn, msg *types.Offer) error {
 	if err != nil {
 		return errors.NewServerError(500, "cannot forward an OFFER message")
 	}
-	r := getRoom(msg.Room)
-	if r == nil {
-		return errors.NewServerError(500, fmt.Sprintf("room %s was not found", msg.Room))
+	r, err := getRoom(msg.Room)
+	if err != nil {
+		return err
 	}
 	log.Printf("Sending to: %s\n", msg.Partner)
 	if err := r.Send(msg.Partner, repacked); err != nil {

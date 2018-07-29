@@ -102,11 +102,15 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 func removeConnection(ws *websocket.Conn) {
 	log.Println("Removing connection")
 	ws.Close()
-	u := getUser(ws)
-	if u == nil {
+	u, err := getUser(ws)
+	if err != nil {
+		log.Println("an error occurred: ", err)
 		return
 	}
-	r := getRoom(u.Room)
+	r, err := getRoom(u.Room)
+	if err != nil {
+		log.Println("an error occurred: ", err)
+	}
 	r.RemoveConnection(u.Login)
 	log.Printf("Removed user \"%s\" from room \"%s\"\n", u.Login, u.Room)
 	users.Delete(ws)

@@ -15,7 +15,10 @@ func HandleIce(ws *websocket.Conn, msg *types.Ice) error {
 	if err != nil {
 		return errors.NewServerError(500, "cannot forward the ICE message")
 	}
-	r := getRoom(msg.Room)
+	r, err := getRoom(msg.Room)
+	if err != nil {
+		return err
+	}
 	if err := r.Send(msg.Partner, repacked); err != nil {
 		return errors.NewServerError(500, fmt.Sprintf("error occurred when sending an ICE message: %v", err))
 	}
