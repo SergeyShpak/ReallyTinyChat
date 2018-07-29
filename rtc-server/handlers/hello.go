@@ -83,7 +83,7 @@ func createNewRoom(name string) (*types.Room, error) {
 
 func sendHelloOKMessage(ws *websocket.Conn, msg *types.Hello) error {
 	r, err := getRoom(msg.Room)
-	if r == nil {
+	if err != nil {
 		return err
 	}
 	okMsg, err := types.NewMessageHelloOK(msg.Login, r)
