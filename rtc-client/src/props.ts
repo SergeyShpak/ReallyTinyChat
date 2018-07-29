@@ -4,6 +4,7 @@ export interface ILoginProps{
   onLogin: (login: RTCClient) => void
   onClientClose: (e: CloseEvent) => void
   onOpenDataChannel: () => void
+  onDataChannelClose: (e: CloseEvent) => void
   onServerError: (code: number, hint: string) => void
 }
 
@@ -14,13 +15,11 @@ export interface IContactsProps {
 export interface IChatProps {
   active: boolean
   client: RTCClient
-  closeChat: () => void
 }
 
 export interface IChatAreaProps {
   active: boolean
   client: RTCClient
-  closeChat: () => void
 }
 
 export interface IErrorBoundaryProps {

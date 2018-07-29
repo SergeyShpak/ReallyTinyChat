@@ -8,7 +8,7 @@ class Chat extends Component<Props.IChatProps, {}> {
   public render() {
     return (
       <div className="container">
-        <ChatArea client={this.props.client} closeChat={this.props.closeChat} active={this.props.active}/>
+        <ChatArea client={this.props.client} active={this.props.active}/>
       </div>
     );
   }

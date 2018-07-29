@@ -64,6 +64,7 @@ class Login extends Component<Props.ILoginProps, {
     })
     client.SetOnRTCDataChannelOpen(this.props.onOpenDataChannel)
     client.SetOnServerError(this.props.onServerError)
+    client.SetOnClose(this.props.onDataChannelClose)
     await client.Connect(this.state.login, this.state.room)
   }
 

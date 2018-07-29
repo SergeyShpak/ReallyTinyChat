@@ -24,7 +24,7 @@ class App extends React.Component<{}, {
     this.onLogin = this.onLogin.bind(this)
     this.onOpenDataChannel = this.onOpenDataChannel.bind(this)
     this.onServerError = this.onServerError.bind(this)
-    this.onChatClose = this.onChatClose.bind(this);
+    this.onDataChannelClose = this.onDataChannelClose.bind(this);
     this.onError = this.onError.bind(this);
   }
 
@@ -36,8 +36,14 @@ class App extends React.Component<{}, {
           <h1 className="App-title">Welcome to ReallyTinyChat</h1>
         </header>
         {this.state.state === 0 ?
-          <Login onLogin={this.onLogin} onClientClose={this.onError} onOpenDataChannel={this.onOpenDataChannel} onServerError={this.onServerError}/> :
-          <Chat client={this.state.client} closeChat={this.onChatClose} active={this.state.isChatActive}/>
+          <Login
+            onLogin={this.onLogin}
+            onClientClose={this.onError}
+            onOpenDataChannel={this.onOpenDataChannel}
+            onServerError={this.onServerError}
+            onDataChannelClose={this.onDataChannelClose}
+          /> :
+          <Chat client={this.state.client} active={this.state.isChatActive}/>
         }
       </div>
     );
@@ -47,8 +53,8 @@ class App extends React.Component<{}, {
     this.setState({state: 1, client})
   }
 
-  private onChatClose() {
-    this.setState({state: 0})
+  private onDataChannelClose() {
+    this.setState({isChatActive: false})
   }
 
   private onError() {

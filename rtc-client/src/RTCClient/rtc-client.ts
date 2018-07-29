@@ -63,7 +63,6 @@ export class RTCClient {
   }
 
   public SetOnClose(f: (e: CloseEvent) => void) {
-    // this.rtcDataChannel.onclose = f
     this.onClose = f
   }
 
@@ -86,8 +85,7 @@ export class RTCClient {
   private async sendOffer(partner: string) {
     this.partner = partner
     this.rtcDataChannel = this.rtcConn.createDataChannel("data")
-    this.rtcDataChannel.onopen = this.onDataChannelOpen
-    this.rtcDataChannel.onmessage = this.rtcHandleReceiveMessage
+    this.setupChannel(this.rtcDataChannel)
     const offer = await this.rtcConn.createOffer()
     await this.rtcConn.setLocalDescription(offer)
     const offerMsg: Messages.IOffer = {
@@ -126,13 +124,11 @@ export class RTCClient {
   private async finalizeOffer(offer: Messages.IOffer) {
     const rtcSessionDescr = JSON.parse(offer.Offer) as RTCSessionDescriptionInit
     await this.rtcConn.setRemoteDescription(rtcSessionDescr)
-  }
-
-  private onIceCandidate(e: RTCPeerConnectionIceEvent) {
-    if (!e.candidate) {
-      return
+    const sleep = (ms: number) => {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
-    clientInstance.sendIce(e.candidate)
+    await sleep(500)
+    console.log("RTC: ", this.rtcDataChannel)
   }
 
   private async sendIce(candidate: RTCIceCandidate) {
@@ -161,27 +157,24 @@ export class RTCClient {
     }
   }
 
-  private close(e?: CloseEvent) {
-    if (!!this.rtcDataChannel) {
-      this.rtcDataChannel.close()
-    }
-    if (!!this.rtcConn) {
+  private openChannel(chan: RTCDataChannel) {
+    this.setupChannel(chan)
+    this.rtcDataChannel = chan
+    this.onRTCDataChannelOpen()
+  }
+
+  private setupChannel(chan: RTCDataChannel) {
+    chan.onopen = this.onDataChannelOpen
+    chan.onmessage = this.rtcHandleReceiveMessage
+    chan.onclose = this.onDataChannelClose
+  }
+
+  private async closeDataChannel(e: CloseEvent) {
+    if (!!this.onClose) {
+      this.onClose(e)
       this.rtcConn.close()
-    }
-    if (!!this.serverWS) {
-      this.serverWS.close()
-    }
-    this.onClose(e)
-  }
-
-  private receiveChannel(e: RTCDataChannelEvent) {
-    clientInstance.rtcDataChannel = e.channel
-    clientInstance.rtcDataChannel.onmessage = clientInstance.rtcHandleReceiveMessage
-    clientInstance.onRTCDataChannelOpen()
-  }
-
-  private rtcHandleReceiveMessage(e: MessageEvent) {
-    clientInstance.messagesQueue.push({from: clientInstance.partner, msg: e.data})
+      await this.createRTCConnection(null)
+    } 
   }
 
   private async send(msg: Messages.IWsWrapper, ctr?: number, timeoutMs?: number): Promise<void> {
@@ -210,16 +203,20 @@ export class RTCClient {
     this.login = msg.Login
     this.room = msg.Room
     const partners = msg.Partners.filter(p => p !== this.login)
+    console.log("People in the room: ", partners)
     await Promise.all(partners.map(async (p) => {
       await this.sendOffer(p)
     }))
   }
 
   private async handleOffer(msg: Messages.IOffer) {
+    console.log("Received offer from ", msg.Login)
     if (msg.IsResponse) {
+      console.log("Received offer.Finalizing")
       await this.finalizeOffer(msg)
       return
     }
+    console.log("Received offer.Response")
     this.partner = msg.Login
     await this.sendOfferResponse(msg)
     return
@@ -227,13 +224,6 @@ export class RTCClient {
 
   private async handleIce(msg: Messages.IIceCandidate) {
     await this.addIceCandidate(JSON.parse(msg.Candidate) as RTCIceCandidate)
-  }
-
-  private handleClose() {
-    if (!!this.rtcDataChannel && !!this.onClose) {
-      this.rtcDataChannel.close()
-      this.onClose(null)
-    }
   }
 
   private handleError(msg: Messages.IError) {
@@ -256,9 +246,6 @@ export class RTCClient {
         const candidatePayload = JSON.parse(msg.Message) as Messages.IIceCandidate
         this.handleIce(candidatePayload)
         return
-      case "CLOSE":
-        this.handleClose()
-        return
       case "ERROR":
         const error = JSON.parse(msg.Message) as Messages.IError
         this.handleError(error)
@@ -276,6 +263,25 @@ export class RTCClient {
     if (!!clientInstance.onRTCDataChannelOpen) {
       clientInstance.onRTCDataChannelOpen()
     }
+  }
+
+  private onDataChannelClose(e: CloseEvent) {
+    clientInstance.closeDataChannel(e)
+  }
+
+  private rtcHandleReceiveMessage(e: MessageEvent) {
+    clientInstance.messagesQueue.push({from: clientInstance.partner, msg: e.data})
+  }
+
+  private receiveChannel(e: RTCDataChannelEvent) {
+    clientInstance.openChannel(e.channel)
+  }
+
+  private onIceCandidate(e: RTCPeerConnectionIceEvent) {
+    if (!e.candidate) {
+      return
+    }
+    clientInstance.sendIce(e.candidate)
   }
 
   private onWsError(e: ErrorEvent) {

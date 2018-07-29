@@ -18,7 +18,7 @@ class ChatArea extends Component<Props.IChatAreaProps, {
     super(props)
     this.onMessageChange = this.onMessageChange.bind(this)
     this.onSendClick = this.onSendClick.bind(this)
-    this.onCloseChat = this.onCloseChat.bind(this)
+    // this.onCloseChat = this.onCloseChat.bind(this)
 
     const messagesQueue: EventedArray = new EventedArray(() => {
       const msg = this.state.messagesQueue.Stack.shift()
@@ -36,7 +36,7 @@ class ChatArea extends Component<Props.IChatAreaProps, {
   }
 
   public componentDidMount() {
-    this.props.client.SetOnClose(this.onCloseChat)
+    // this.props.client.SetOnClose(this.onCloseChat)
   }
 
   public render() {
@@ -74,10 +74,6 @@ class ChatArea extends Component<Props.IChatAreaProps, {
         </div>
       </div>
     )
-  }
-
-  private onCloseChat(e: CloseEvent) {
-    this.props.closeChat()
   }
 
   private onMessageChange(e) {

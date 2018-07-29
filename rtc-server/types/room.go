@@ -7,19 +7,39 @@ import (
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 )
 
+type RoomOpts struct {
+	Capacity int
+}
+
 type Room struct {
-	Name string
+	Capacity int
+	Name     string
 
 	Connections    map[string]*Connection
 	ConnectionsMux sync.RWMutex
 }
 
-func NewRoom(roomName string) *Room {
+func NewRoom(roomName string, opts ...*RoomOpts) *Room {
+	o := getRoomOpts(opts)
 	r := &Room{
 		Name:        roomName,
 		Connections: make(map[string]*Connection),
 	}
+	// TODO(SSH): add errors
+	if o.Capacity < 2 {
+		return nil
+	}
+	r.Capacity = o.Capacity
 	return r
+}
+
+func getRoomOpts(opts []*RoomOpts) *RoomOpts {
+	if len(opts) == 0 {
+		return &RoomOpts{
+			Capacity: 2,
+		}
+	}
+	return opts[0]
 }
 
 func (r *Room) AddConnection(conn *Connection) {
@@ -27,9 +47,17 @@ func (r *Room) AddConnection(conn *Connection) {
 		return
 	}
 	r.ConnectionsMux.Lock()
-	r.Connections[conn.Login] = conn
+	r.addConnection(conn)
 	r.ConnectionsMux.Unlock()
 	return
+}
+
+//TODO(SSH): add errors
+func (r *Room) addConnection(conn *Connection) {
+	if len(r.Connections) >= r.Capacity {
+		return
+	}
+	r.Connections[conn.Login] = conn
 }
 
 func (r *Room) RemoveConnection(login string) {
