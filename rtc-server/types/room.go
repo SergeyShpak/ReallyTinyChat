@@ -1,6 +1,11 @@
 package types
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
+)
 
 type Room struct {
 	Name string
@@ -34,28 +39,42 @@ func (r *Room) RemoveConnection(login string) {
 }
 
 func (r *Room) IsConnected(login string) bool {
-	r.ConnectionsMux.Lock()
+	r.ConnectionsMux.RLock()
 	_, ok := r.Connections[login]
-	r.ConnectionsMux.Unlock()
+	r.ConnectionsMux.RUnlock()
 	return ok
 }
 
-func (r *Room) GetConnection(login string) *Connection {
-	r.ConnectionsMux.Lock()
-	conn, ok := r.Connections[login]
-	r.ConnectionsMux.Unlock()
-	if !ok {
-		return nil
-	}
-	return conn
-}
-
 func (r *Room) ListConnections() []string {
-	r.ConnectionsMux.Lock()
+	r.ConnectionsMux.RLock()
 	connections := make([]string, 0, len(r.Connections))
 	for c := range r.Connections {
 		connections = append(connections, c)
 	}
-	r.ConnectionsMux.Unlock()
+	r.ConnectionsMux.RUnlock()
 	return connections
+}
+
+func (r *Room) IsEmpty() bool {
+	r.ConnectionsMux.RLock()
+	isEmpty := len(r.Connections) == 0
+	r.ConnectionsMux.RUnlock()
+	return isEmpty
+}
+
+func (r *Room) Send(login string, msg interface{}) error {
+	var err error
+	r.ConnectionsMux.RLock()
+	err = r.send(login, msg)
+	r.ConnectionsMux.RUnlock()
+	return err
+}
+
+func (r *Room) send(login string, msg interface{}) error {
+	conn, ok := r.Connections[login]
+	if !ok {
+		return errors.NewServerError(404, fmt.Sprintf("user %s was not found in the room %s", login, r.Name))
+	}
+	conn.WS.WriteJSON(msg)
+	return nil
 }

@@ -13,7 +13,7 @@ import (
 )
 
 var rooms sync.Map
-var wsRooms sync.Map
+var users sync.Map
 
 func Connect(w http.ResponseWriter, r *http.Request) {
 	if err := createConnection(w, r); err != nil {
@@ -37,6 +37,7 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.NewServerError(500, fmt.Sprintf("upgrader failed: %v", err))
 	}
+	users.Store(ws, &types.User{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -48,49 +49,23 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 }
 
 func listenToMessages(ws *websocket.Conn) {
-	// wsRooms.Store(ws, &room{})
 	for {
 		msg := &types.Message{}
 		if err := ws.ReadJSON(msg); err != nil {
-			handleListenMsgError(err)
+			handleListenMsgError(ws, err)
+			break
 		}
 		if err := handleMessage(ws, msg); err != nil {
 			log.Println("an error occurred during message handling: ", err)
 			continue
 		}
-		/*
-
-			_, ok := wsRooms.Load(ws)
-			if !ok {
-				ws.Close()
-				break
-			}
-		*/
-		/*
-			if err := ws.ReadJSON(msg); err != nil {
-				closeErr, ok := err.(*websocket.CloseError)
-				if ok {
-					log.Println("need to close the room: ", closeErr.Code)
-					r, ok := wsRooms.Load(ws)
-					if !ok {
-						log.Println("Oops, that does not look good...")
-						break
-					}
-					if err := closeRoom(ws, r.(*room)); err != nil {
-						log.Println("error during room close: ", err)
-					}
-					break
-				}
-				log.Println("an error occurred during message reading: ", err)
-				continue
-			}
-		*/
-
 	}
 }
 
-func handleListenMsgError(err error) {
-	log.Println("error occurred: ", err)
+func handleListenMsgError(ws *websocket.Conn, err error) {
+	removeConnection(ws)
+	log.Println("an error occurred during message reading: ", err)
+	return
 }
 
 func handleMessage(ws *websocket.Conn, msg *types.Message) error {
@@ -124,32 +99,21 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 	return nil
 }
 
-/*
-func closeRoom(ws *websocket.Conn, r *room) error {
-	closeMsg, err := types.NewMessageClose("That's all, folks!")
-	if err != nil {
-		return err
+func removeConnection(ws *websocket.Conn) {
+	log.Println("Removing connection")
+	ws.Close()
+	u := getUser(ws)
+	if u == nil {
+		return
 	}
-	var connToInform *websocket.Conn
-	if r != nil {
-		if r.connector != nil {
-			connToInform = r.connector.conn
-		}
-		if r.connectee != nil && r.connectee.conn == ws {
-			connToInform = r.connector.conn
-		}
+	r := getRoom(u.Room)
+	r.RemoveConnection(u.Login)
+	log.Printf("Removed user \"%s\" from room \"%s\"\n", u.Login, u.Room)
+	users.Delete(ws)
+	log.Printf("Closed connection to user \"%s\"\n", u.Login)
+	if r.IsEmpty() {
+		rooms.Delete(u.Room)
+		log.Printf("Room \"%s\" went empty and was removed\n", u.Room)
+		return
 	}
-	if connToInform != nil {
-		if err := connToInform.WriteJSON(closeMsg); err != nil {
-			return err
-		}
-	}
-	if err := ws.Close(); err != nil {
-		return err
-	}
-	wsRooms.Delete(connToInform)
-	wsRooms.Delete(ws)
-	rooms.Delete(r.name)
-	return nil
 }
-*/

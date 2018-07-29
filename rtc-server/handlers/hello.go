@@ -45,6 +45,11 @@ func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
 		Login: msg.Login,
 		WS:    ws,
 	}
+	user := &types.User{
+		Login: msg.Login,
+		Room:  msg.Room,
+	}
+	users.Store(ws, user)
 	r.AddConnection(conn)
 	return nil
 }
