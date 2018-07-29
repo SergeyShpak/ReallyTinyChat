@@ -13,6 +13,7 @@ export class RTCClient {
   private onRTCConnection: () => void
   private onRTCDataChannelOpen: () => void
   private onClose: (e: CloseEvent) => void
+  private onServerError: (code: number, hint: string) => void 
   private partner: string = ""
   private room: string = ""
 
@@ -72,6 +73,10 @@ export class RTCClient {
 
   public SetOnRTCDataChannelOpen(f: () => void) {
     this.onRTCDataChannelOpen = f
+  }
+
+  public SetOnServerError(f: (code: number, hint: string) => void) {
+    this.onServerError = f
   }
 
   public Partner(): string {
@@ -232,9 +237,7 @@ export class RTCClient {
   }
 
   private handleError(msg: Messages.IError) {
-    console.log(msg)
-    const closeEvent = new CloseEvent("ERROR code received", {code: 1002, reason: msg.Hint})
-    this.close(closeEvent)
+    this.onServerError(msg.Code, msg.Hint)
     return
   }
 

@@ -4,6 +4,7 @@ export interface ILoginProps{
   onLogin: (login: RTCClient) => void
   onClientClose: (e: CloseEvent) => void
   onOpenDataChannel: () => void
+  onServerError: (code: number, hint: string) => void
 }
 
 export interface IContactsProps {
