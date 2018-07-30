@@ -2,7 +2,7 @@ import EventedArray from './evented_array'
 import * as Messages from './messages'
 
 
-const server = "localhost:8080"
+const server = "localhost:4443"
 
 let clientInstance: RTCClient
 
@@ -27,7 +27,7 @@ export class RTCClient {
     if (this.host === undefined || this.host === null) {
       this.host = server
     }
-    const addr = "ws://" + this.host + "/conn"
+    const addr = "wss://" + this.host + "/conn"
     this.serverWS = new WebSocket(addr)
     clientInstance = this
 
@@ -37,7 +37,7 @@ export class RTCClient {
 
   public async Connect(login: string, room: string) {
     this.login = login
-    const helloMsg: Messages.IHello ={
+    const helloMsg: Messages.IHello = {
       Login: login,
       Room: room,
     }
