@@ -1,6 +1,7 @@
 package types
 
 type User struct {
-	Login string
-	Room  string
+	Login  string
+	Secret []byte
+	Room   string
 }

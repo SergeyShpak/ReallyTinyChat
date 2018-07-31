@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
-	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
+
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/jwt"
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 )
 
 var rooms sync.Map
@@ -37,7 +39,6 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.NewServerError(500, fmt.Sprintf("upgrader failed: %v", err))
 	}
-	users.Store(ws, &types.User{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -69,23 +70,35 @@ func handleListenMsgError(ws *websocket.Conn, err error) {
 }
 
 func handleMessage(ws *websocket.Conn, msg *types.Message) error {
+	payload, err := verifyMessage(ws, msg)
+	if err != nil {
+		return err
+	}
 	t := msg.Type
 	switch t {
 	case "HELLO":
 		log.Println("HELLO message received")
-		helloMsg := &types.Hello{}
-		json.Unmarshal([]byte(msg.Message), helloMsg)
-		HandleHello(ws, helloMsg)
+		HandleHello(ws, msg.Login, msg.Room)
 	case "OFFER":
 		log.Println("OFFER message received")
 		offerMsg := &types.Offer{}
-		json.Unmarshal([]byte(msg.Message), offerMsg)
-		HandleOffer(ws, offerMsg)
+		if err := json.Unmarshal([]byte(payload), offerMsg); err != nil {
+			log.Println("could not unmarshal as OFFER: ", payload)
+			return err
+		}
+		if err := HandleOffer(msg.Login, msg.Room, offerMsg); err != nil {
+			return err
+		}
 	case "ICE":
 		log.Println("ICE message received")
 		iceMsg := &types.Ice{}
-		json.Unmarshal([]byte(msg.Message), iceMsg)
-		HandleIce(ws, iceMsg)
+		if err := json.Unmarshal([]byte(payload), iceMsg); err != nil {
+			log.Println("could not unmarshal as ICE: ", payload)
+			return err
+		}
+		if err := HandleIce(msg.Login, msg.Room, iceMsg); err != nil {
+			return err
+		}
 	default:
 		servErr := errors.NewServerError(400, fmt.Sprintf("the server does not know about \"%s\" message type", t))
 		errMsg, err := types.NewMessageError(servErr)
@@ -120,4 +133,20 @@ func removeConnection(ws *websocket.Conn) {
 		log.Printf("Room \"%s\" went empty and was removed\n", u.Room)
 		return
 	}
+}
+
+func verifyMessage(ws *websocket.Conn, msg *types.Message) (payload string, err error) {
+	if msg.Type == "HELLO" {
+		return "", nil
+	}
+	u, err := getUser(ws)
+	if err != nil {
+		return "", err
+	}
+	log.Println("User fetched: ", u)
+	// TODO: add checking
+	if u.Login != msg.Login || u.Room != msg.Room {
+
+	}
+	return jwt.Verify(msg, u.Secret)
 }

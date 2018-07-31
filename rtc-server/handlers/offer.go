@@ -6,15 +6,14 @@ import (
 
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
-	"github.com/gorilla/websocket"
 )
 
-func HandleOffer(ws *websocket.Conn, msg *types.Offer) error {
+func HandleOffer(login string, room string, msg *types.Offer) error {
 	repacked, err := types.NewMessageOffer(msg)
 	if err != nil {
 		return errors.NewServerError(500, "cannot forward an OFFER message")
 	}
-	r, err := getRoom(msg.Room)
+	r, err := getRoom(room)
 	if err != nil {
 		return err
 	}

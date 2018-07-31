@@ -7,8 +7,15 @@ import (
 )
 
 type Message struct {
+	Type  string
+	Login string
+	Room  string
+	Token string
+}
+
+type ResponseMessage struct {
 	Type    string
-	Message string
+	Payload string
 }
 
 type Hello struct {
@@ -18,13 +25,13 @@ type Hello struct {
 
 type HelloOK struct {
 	Login    string
+	Secret   []byte
 	Room     string
 	Partners []string
 }
 
 type Offer struct {
 	Login      string
-	Room       string
 	Partner    string
 	IsResponse bool
 	Offer      string
@@ -32,7 +39,6 @@ type Offer struct {
 
 type Ice struct {
 	Candidate string
-	Room      string
 	Partner   string
 }
 
@@ -45,42 +51,32 @@ type Error struct {
 	Code int
 }
 
-func NewMessageHelloOK(login string, room *Room) (*Message, error) {
+func NewMessageHelloOK(login string, secret []byte, room *Room) (*ResponseMessage, error) {
 	payload := &HelloOK{
 		Login:    login,
+		Secret:   secret,
 		Room:     room.Name,
 		Partners: room.ListConnections(),
 	}
 	return createMessage(payload, "HELLOOK")
 }
 
-/*
-func NewMessageRoomInfo(connector string, connectee string, room string) (*Message, error) {
-	payload := &RoomInfo{
-		Connector: connector,
-		Connectee: connectee,
-		Room:      room,
-	}
-	return createMessage(payload, "ROOMINFO")
-}
-*/
-
-func NewMessageOffer(payload *Offer) (*Message, error) {
+func NewMessageOffer(payload *Offer) (*ResponseMessage, error) {
 	return createMessage(payload, "OFFER")
 }
 
-func NewMessageIce(payload *Ice) (*Message, error) {
+func NewMessageIce(payload *Ice) (*ResponseMessage, error) {
 	return createMessage(payload, "ICE")
 }
 
-func NewMessageClose(message string) (*Message, error) {
+func NewMessageClose(message string) (*ResponseMessage, error) {
 	payload := &Close{
 		Message: message,
 	}
 	return createMessage(payload, "CLOSE")
 }
 
-func NewMessageError(err *errors.ServerError) (*Message, error) {
+func NewMessageError(err *errors.ServerError) (*ResponseMessage, error) {
 	payload := &Error{
 		Code: err.Code,
 		Hint: err.Hint,
@@ -88,14 +84,14 @@ func NewMessageError(err *errors.ServerError) (*Message, error) {
 	return createMessage(payload, "ERROR")
 }
 
-func createMessage(payload interface{}, msgType string) (*Message, error) {
+func createMessage(payload interface{}, msgType string) (*ResponseMessage, error) {
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
 		return nil, errors.NewServerError(500, err.Error())
 	}
-	msg := &Message{
+	msg := &ResponseMessage{
 		Type:    msgType,
-		Message: string(payloadB),
+		Payload: string(payloadB),
 	}
 	return msg, nil
 }

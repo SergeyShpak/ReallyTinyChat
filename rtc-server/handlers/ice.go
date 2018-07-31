@@ -6,16 +6,16 @@ import (
 
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
-	"github.com/gorilla/websocket"
 )
 
-func HandleIce(ws *websocket.Conn, msg *types.Ice) error {
+// TODO: cannot merge with HandleOffer?
+func HandleIce(login string, room string, msg *types.Ice) error {
 	log.Printf("Received ICE message, forwarding to %s\n", msg.Partner)
 	repacked, err := types.NewMessageIce(msg)
 	if err != nil {
 		return errors.NewServerError(500, "cannot forward the ICE message")
 	}
-	r, err := getRoom(msg.Room)
+	r, err := getRoom(room)
 	if err != nil {
 		return err
 	}
