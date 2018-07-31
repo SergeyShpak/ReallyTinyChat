@@ -5,7 +5,7 @@
 		{
 			"path": "git",
 			"revision": "github.com:dgrijalva/jwt-go.git",
-			"version": "github.com:dgrijalva/jwt-go.git"
+			"version": "github.com:gomodule/redigo.git"
 		},
 		{
 			"checksumSHA1": "mUeojTdLEyzYOki70VUAeeYr/wQ=",
@@ -16,6 +16,24 @@
 		{
 			"path": "github.com/dgrijalva/jwt-go.git",
 			"revision": ""
+		},
+		{
+			"checksumSHA1": "f16K7hyj9qrMddNIiKGRSgDCk2M=",
+			"path": "github.com/gomodule/redigo",
+			"revision": "2cd21d9966bf7ff9ae091419744f0b3fb0fecace",
+			"revisionTime": "2018-06-27T14:45:07Z"
+		},
+		{
+			"checksumSHA1": "w3QCCIYHgZzIXQ+xTl7oLfFrXHs=",
+			"path": "github.com/gomodule/redigo/internal",
+			"revision": "2cd21d9966bf7ff9ae091419744f0b3fb0fecace",
+			"revisionTime": "2018-06-27T14:45:07Z"
+		},
+		{
+			"checksumSHA1": "To/N5YA/FD0Rrs6r2OOmHXgxYwI=",
+			"path": "github.com/gomodule/redigo/redis",
+			"revision": "2cd21d9966bf7ff9ae091419744f0b3fb0fecace",
+			"revisionTime": "2018-06-27T14:45:07Z"
 		},
 		{
 			"checksumSHA1": "QdSIO+gp41BqNti0ZDVdXvfDvDo=",
