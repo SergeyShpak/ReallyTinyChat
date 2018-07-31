@@ -143,9 +143,9 @@ func verifyMessage(ws *websocket.Conn, msg *types.Message) (payload string, err 
 	if err != nil {
 		return "", err
 	}
-	// TODO: add checking
 	if u.Login != msg.Login || u.Room != msg.Room {
-
+		return "", errors.NewServerError(http.StatusBadRequest,
+			fmt.Sprintf("WebSocket connection is associated with the user \"%s\" in the room \"%s\", not with user \"%s\" in the room \"%s\"", u.Login, u.Room, msg.Login, msg.Room))
 	}
 	return jwt.Verify(msg, u.Secret)
 }
