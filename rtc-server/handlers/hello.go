@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/jwt"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
-	"github.com/gorilla/websocket"
 )
 
-func HandleHello(ws *websocket.Conn, login string, room string) {
-	if err := addToConnections(ws, login, room); err != nil {
+func (h *Handler) HandleHello(ws *websocket.Conn, login string, room string) {
+	if err := h.addToConnections(ws, login, room); err != nil {
 		servErr, ok := err.(*errors.ServerError)
 		if !ok {
 			servErr = errors.NewServerError(500, fmt.Sprintf("%s", err))
@@ -25,7 +26,7 @@ func HandleHello(ws *websocket.Conn, login string, room string) {
 		ws.WriteJSON(errMsg)
 		return
 	}
-	if err := sendHelloOKMessage(ws, login, room); err != nil {
+	if err := h.sendHelloOKMessage(ws, login, room); err != nil {
 		log.Println("error occurred: ", err)
 		return
 	}
@@ -33,7 +34,7 @@ func HandleHello(ws *websocket.Conn, login string, room string) {
 	return
 }
 
-func addToConnections(ws *websocket.Conn, login string, room string) error {
+func (h *Handler) addToConnections(ws *websocket.Conn, login string, room string) error {
 	r, err := getRoom(room)
 	var roomToAdd bool
 	if err != nil {
@@ -42,7 +43,7 @@ func addToConnections(ws *websocket.Conn, login string, room string) error {
 			return errors.NewServerError(500, fmt.Sprintf("could not cast error %v to a ServerError", err))
 		}
 		if servErr.Code == 404 {
-			r, err = createNewRoom(room)
+			r, err = h.createNewRoom(room)
 			if err != nil {
 				return err
 			}
@@ -68,9 +69,11 @@ func addToConnections(ws *websocket.Conn, login string, room string) error {
 		return err
 	}
 	user := &types.User{
-		Login:  login,
-		Room:   room,
-		Secret: secret,
+		Login: login,
+		Room:  room,
+	}
+	if err = h.StoreUser(ws, user, secret); err != nil {
+		return err
 	}
 	users.Store(ws, user)
 	if roomToAdd {
@@ -79,7 +82,7 @@ func addToConnections(ws *websocket.Conn, login string, room string) error {
 	return nil
 }
 
-func createNewRoom(name string) (*types.Room, error) {
+func (h *Handler) createNewRoom(name string) (*types.Room, error) {
 	r, err := types.NewRoom(name)
 	if err != nil {
 		servErr, ok := err.(*errors.ServerError)
@@ -91,16 +94,16 @@ func createNewRoom(name string) (*types.Room, error) {
 	return r, nil
 }
 
-func sendHelloOKMessage(ws *websocket.Conn, login string, room string) error {
+func (h *Handler) sendHelloOKMessage(ws *websocket.Conn, login string, room string) error {
 	r, err := getRoom(room)
 	if err != nil {
 		return err
 	}
-	user, err := getUser(ws)
+	secret, err := h.GetUserSecretWithConn(ws)
 	if err != nil {
 		return err
 	}
-	okMsg, err := types.NewMessageHelloOK(login, user.Secret, r)
+	okMsg, err := types.NewMessageHelloOK(login, secret, r)
 	if err != nil {
 		return err
 	}

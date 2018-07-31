@@ -11,7 +11,7 @@ type Config struct {
 }
 
 type Cache struct {
-	Redis struct {
+	Redis *struct {
 		Address  string
 		Password string
 		DB       int

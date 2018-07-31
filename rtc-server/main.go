@@ -7,24 +7,33 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/cache"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/config"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/handlers"
 )
 
+var Cache cache.Client
+
 func main() {
-	_, err := config.Read("config.json")
+	c, err := config.Read("config.json")
 	if err != nil {
 		log.Println("error occurred: ", err)
 		return
 	}
-	run()
+	err = run(c)
+	if err != nil {
+		log.Println("error occurred: ", err)
+	}
 }
 
-func run() {
+func run(c *config.Config) error {
 	log.Println("Starting server")
-	srv := setupServ(createHttpServer())
+	h, err := handlers.NewHandler(c)
+	if err != nil {
+		return err
+	}
+	srv := setupServ(createHttpServer(h))
 	var wg sync.WaitGroup
-	var err error
 	wg.Add(1)
 	go func() {
 		err = listenAndServeTLS(srv)
@@ -36,11 +45,13 @@ func run() {
 		log.Println("an error occurred while serving TLS: ", err)
 	}
 	log.Println("Stopping server")
+	return nil
 }
 
-func createHttpServer() *http.Server {
+func createHttpServer(h *handlers.Handler) *http.Server {
+
 	r := newRouter()
-	r.Add("/conn", handlers.Connect)
+	r.Add("/conn", h.Connect)
 	srv := &http.Server{
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

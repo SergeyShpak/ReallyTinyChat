@@ -9,6 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/cache"
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/config"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/jwt"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
@@ -17,8 +19,25 @@ import (
 var rooms sync.Map
 var users sync.Map
 
-func Connect(w http.ResponseWriter, r *http.Request) {
-	if err := createConnection(w, r); err != nil {
+type Handler struct {
+	cache cache.Client
+}
+
+func NewHandler(c *config.Config) (*Handler, error) {
+	if c == nil {
+		return nil, errors.NewServerError(http.StatusInternalServerError, "configuration object passed to the handler in nil")
+	}
+	h := &Handler{}
+	var err error
+	h.cache, err = cache.NewClient(c.Cache)
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
+func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
+	if err := h.createConnection(w, r); err != nil {
 		log.Printf("could not create a connection: %v", err)
 		WriteResponse(w, &Response{
 			Status:  http.StatusInternalServerError,
@@ -28,7 +47,7 @@ func Connect(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createConnection(w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) error {
 	upgrader := websocket.Upgrader{
 		// TODO(SSH): what about origins?
 		CheckOrigin: func(r *http.Request) bool {
@@ -42,35 +61,35 @@ func createConnection(w http.ResponseWriter, r *http.Request) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		listenToMessages(ws)
+		h.listenToMessages(ws)
 		wg.Done()
 	}()
 	wg.Wait()
 	return nil
 }
 
-func listenToMessages(ws *websocket.Conn) {
+func (h *Handler) listenToMessages(ws *websocket.Conn) {
 	for {
 		msg := &types.Message{}
 		if err := ws.ReadJSON(msg); err != nil {
-			handleListenMsgError(ws, err)
+			h.handleListenMsgError(ws, err)
 			break
 		}
-		if err := handleMessage(ws, msg); err != nil {
+		if err := h.handleMessage(ws, msg); err != nil {
 			log.Println("an error occurred during message handling: ", err)
 			continue
 		}
 	}
 }
 
-func handleListenMsgError(ws *websocket.Conn, err error) {
-	removeConnection(ws)
+func (h *Handler) handleListenMsgError(ws *websocket.Conn, err error) {
+	h.removeConnection(ws)
 	log.Println("an error occurred during message reading: ", err)
 	return
 }
 
-func handleMessage(ws *websocket.Conn, msg *types.Message) error {
-	payload, err := verifyMessage(ws, msg)
+func (h *Handler) handleMessage(ws *websocket.Conn, msg *types.Message) error {
+	payload, err := h.verifyMessage(ws, msg)
 	if err != nil {
 		return err
 	}
@@ -78,7 +97,7 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 	switch t {
 	case "HELLO":
 		log.Println("HELLO message received")
-		HandleHello(ws, msg.Login, msg.Room)
+		h.HandleHello(ws, msg.Login, msg.Room)
 	case "OFFER":
 		log.Println("OFFER message received")
 		offerMsg := &types.Offer{}
@@ -112,10 +131,10 @@ func handleMessage(ws *websocket.Conn, msg *types.Message) error {
 	return nil
 }
 
-func removeConnection(ws *websocket.Conn) {
+func (h *Handler) removeConnection(ws *websocket.Conn) {
 	log.Println("Removing connection")
 	ws.Close()
-	u, err := getUser(ws)
+	u, _, err := h.GetUserWithConn(ws)
 	if err != nil {
 		log.Println("an error occurred: ", err)
 		return
@@ -126,7 +145,9 @@ func removeConnection(ws *websocket.Conn) {
 	}
 	r.RemoveConnection(u.Login)
 	log.Printf("Removed user \"%s\" from room \"%s\"\n", u.Login, u.Room)
-	users.Delete(ws)
+	if err = h.RemoveUserWithConn(ws); err != nil {
+		log.Println("error occurred during user removal: ", err)
+	}
 	log.Printf("Closed connection to user \"%s\"\n", u.Login)
 	if r.IsEmpty() {
 		rooms.Delete(u.Room)
@@ -135,17 +156,18 @@ func removeConnection(ws *websocket.Conn) {
 	}
 }
 
-func verifyMessage(ws *websocket.Conn, msg *types.Message) (payload string, err error) {
+func (h *Handler) verifyMessage(ws *websocket.Conn, msg *types.Message) (payload string, err error) {
 	if msg.Type == "HELLO" {
 		return "", nil
 	}
-	u, err := getUser(ws)
+	user, secret, err := h.GetUserWithConn(ws)
 	if err != nil {
 		return "", err
 	}
-	if u.Login != msg.Login || u.Room != msg.Room {
+	if user.Login != msg.Login || user.Room != msg.Room {
 		return "", errors.NewServerError(http.StatusBadRequest,
-			fmt.Sprintf("WebSocket connection is associated with the user \"%s\" in the room \"%s\", not with user \"%s\" in the room \"%s\"", u.Login, u.Room, msg.Login, msg.Room))
+			fmt.Sprintf("WebSocket connection is associated with the user \"%s\" in the room \"%s\", not with user \"%s\" in the room \"%s\"",
+				user.Login, user.Room, msg.Login, msg.Room))
 	}
-	return jwt.Verify(msg, u.Secret)
+	return jwt.Verify(msg, secret)
 }
