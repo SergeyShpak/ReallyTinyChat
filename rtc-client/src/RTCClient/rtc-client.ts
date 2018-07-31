@@ -1,14 +1,16 @@
+import * as JWT from 'jsonwebtoken'
 import EventedArray from './evented_array'
 import * as Messages from './messages'
 
 
-const server = "localhost:8080"
+const server = "localhost:4443"
 
 let clientInstance: RTCClient
 
 export class RTCClient {
   private host: string
   private login: string = ""
+  private jwtSecret: Buffer
   private messagesQueue: EventedArray
   private onRTCConnection: () => void
   private onRTCDataChannelOpen: () => void
@@ -27,7 +29,7 @@ export class RTCClient {
     if (this.host === undefined || this.host === null) {
       this.host = server
     }
-    const addr = "ws://" + this.host + "/conn"
+    const addr = "wss://" + this.host + "/conn"
     this.serverWS = new WebSocket(addr)
     clientInstance = this
 
@@ -37,13 +39,11 @@ export class RTCClient {
 
   public async Connect(login: string, room: string) {
     this.login = login
-    const helloMsg: Messages.IHello ={
+    const msg: Messages.IWsMessage = {
       Login: login,
       Room: room,
-    }
-    const msg: Messages.IWsWrapper = {
-      Message: JSON.stringify(helloMsg),
-      Type: "HELLO"
+      Token: null,
+      Type: "HELLO",
     }
     await this.send(msg)
     this.createRTCConnection(null)
@@ -93,12 +93,9 @@ export class RTCClient {
       Login: this.login,
       Offer: JSON.stringify(offer),
       Partner: partner,
-      Room: this.room,
     }
-    const msg: Messages.IWsWrapper = {
-      Message: JSON.stringify(offerMsg),
-      Type: "OFFER"
-    }
+    const msg = this.signIWsMessage("OFFER", offerMsg)
+    console.log("New offer: ", msg)
     await this.send(msg)
   }
 
@@ -112,12 +109,8 @@ export class RTCClient {
       Login: this.login,
       Offer: JSON.stringify(response),
       Partner: this.partner,
-      Room: this.room,
     }
-    const msg: Messages.IWsWrapper = {
-      Message: JSON.stringify(offerResp),
-      Type: "OFFER"
-    }
+    const msg = this.signIWsMessage("OFFER", offerResp)
     await this.send(msg)
   }
 
@@ -135,12 +128,8 @@ export class RTCClient {
     const iceMsg: Messages.IIceCandidate = {
       Candidate: JSON.stringify(candidate),
       Partner: this.partner,
-      Room: this.room,
     }
-    const msg: Messages.IWsWrapper = {
-      Message: JSON.stringify(iceMsg),
-      Type: "ICE"
-    }
+    const msg = this.signIWsMessage("ICE", iceMsg)
     await this.send(msg)
   }
 
@@ -177,7 +166,7 @@ export class RTCClient {
     } 
   }
 
-  private async send(msg: Messages.IWsWrapper, ctr?: number, timeoutMs?: number): Promise<void> {
+  private async send(msg: Messages.IWsMessage, ctr?: number, timeoutMs?: number): Promise<void> {
     const sleep = (ms: number) => {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -202,6 +191,8 @@ export class RTCClient {
   private async handleHelloOK(msg: Messages.IHelloOK) {
     this.login = msg.Login
     this.room = msg.Room
+    this.jwtSecret = Buffer.from(msg.Secret, 'base64')
+    this.jwtSecret.forEach(v => console.log(v))
     const partners = msg.Partners.filter(p => p !== this.login)
     console.log("People in the room: ", partners)
     await Promise.all(partners.map(async (p) => {
@@ -210,7 +201,6 @@ export class RTCClient {
   }
 
   private async handleOffer(msg: Messages.IOffer) {
-    console.log("Received offer from ", msg.Login)
     if (msg.IsResponse) {
       console.log("Received offer.Finalizing")
       await this.finalizeOffer(msg)
@@ -232,22 +222,22 @@ export class RTCClient {
   }
 
   private handleMessage(e: MessageEvent) {
-    const msg = JSON.parse(e.data) as Messages.IWsWrapper
+    const msg = JSON.parse(e.data) as Messages.IServerMessage
     switch(msg.Type) {
       case "HELLOOK":
-        const helloResp = JSON.parse(msg.Message) as Messages.IHelloOK;
+        const helloResp = JSON.parse(msg.Payload) as Messages.IHelloOK;
         this.handleHelloOK(helloResp);
         return
       case "OFFER":
-        const offerPayload = JSON.parse(msg.Message) as Messages.IOffer
+        const offerPayload = JSON.parse(msg.Payload) as Messages.IOffer
         this.handleOffer(offerPayload)
         return
       case "ICE":
-        const candidatePayload = JSON.parse(msg.Message) as Messages.IIceCandidate
+        const candidatePayload = JSON.parse(msg.Payload) as Messages.IIceCandidate
         this.handleIce(candidatePayload)
         return
       case "ERROR":
-        const error = JSON.parse(msg.Message) as Messages.IError
+        const error = JSON.parse(msg.Payload) as Messages.IError
         this.handleError(error)
         return
       default:
@@ -286,6 +276,21 @@ export class RTCClient {
 
   private onWsError(e: ErrorEvent) {
     console.log("an error occurred: ", e)
+  }
+
+  private signIWsMessage(type: string, payload: any): Messages.IWsMessage {
+    console.log("signing with secret: ", this.jwtSecret)
+    const msgPayload = {
+      Payload: JSON.stringify(payload)
+    }
+    const token = JWT.sign(msgPayload, this.jwtSecret)
+    const msg: Messages.IWsMessage = {
+      Login: this.login,
+      Room: this.room,
+      Token: token,
+      Type: type,
+    }
+    return msg
   }
 }
 

@@ -21,10 +21,6 @@ func getRoom(name string) (*types.Room, error) {
 	return r, nil
 }
 
-func addRoom(room *types.Room) {
-	rooms.Store(room.Name, room)
-}
-
 func getUser(ws *websocket.Conn) (*types.User, error) {
 	userIface, ok := users.Load(ws)
 	if !ok {

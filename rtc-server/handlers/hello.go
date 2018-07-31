@@ -5,12 +5,13 @@ import (
 	"log"
 
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/errors"
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/jwt"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/types"
 	"github.com/gorilla/websocket"
 )
 
-func HandleHello(ws *websocket.Conn, msg *types.Hello) {
-	if err := addToConnections(ws, msg); err != nil {
+func HandleHello(ws *websocket.Conn, login string, room string) {
+	if err := addToConnections(ws, login, room); err != nil {
 		servErr, ok := err.(*errors.ServerError)
 		if !ok {
 			servErr = errors.NewServerError(500, fmt.Sprintf("%s", err))
@@ -20,11 +21,11 @@ func HandleHello(ws *websocket.Conn, msg *types.Hello) {
 			log.Println("error occurred: ", err)
 			return
 		}
-		ws.WriteJSON(errMsg)
 		log.Println(servErr)
+		ws.WriteJSON(errMsg)
 		return
 	}
-	if err := sendHelloOKMessage(ws, msg); err != nil {
+	if err := sendHelloOKMessage(ws, login, room); err != nil {
 		log.Println("error occurred: ", err)
 		return
 	}
@@ -32,39 +33,48 @@ func HandleHello(ws *websocket.Conn, msg *types.Hello) {
 	return
 }
 
-func addToConnections(ws *websocket.Conn, msg *types.Hello) error {
-	r, err := getRoom(msg.Room)
+func addToConnections(ws *websocket.Conn, login string, room string) error {
+	r, err := getRoom(room)
+	var roomToAdd bool
 	if err != nil {
-		log.Println("error occurred: ", err)
 		servErr, ok := err.(*errors.ServerError)
 		if !ok {
 			return errors.NewServerError(500, fmt.Sprintf("could not cast error %v to a ServerError", err))
 		}
 		if servErr.Code == 404 {
-			r, err = createNewRoom(msg.Room)
+			r, err = createNewRoom(room)
 			if err != nil {
 				return err
 			}
-			addRoom(r)
+			log.Printf("created new room \"%s\"", r.Name)
+			roomToAdd = true
 		}
 		if servErr.Code != 404 {
 			return servErr
 		}
 	}
-	if r.IsConnected(msg.Login) {
-		return errors.NewServerError(409, fmt.Sprintf("user %s is already connected", msg.Login))
+	if r.IsConnected(login) {
+		return errors.NewServerError(409, fmt.Sprintf("user %s is already connected", login))
 	}
 	conn := &types.Connection{
-		Login: msg.Login,
+		Login: login,
 		WS:    ws,
 	}
-	user := &types.User{
-		Login: msg.Login,
-		Room:  msg.Room,
-	}
-	users.Store(ws, user)
 	if err = r.AddConnection(conn); err != nil {
 		return err
+	}
+	secret, err := jwt.GenerateSecret()
+	if err != nil {
+		return err
+	}
+	user := &types.User{
+		Login:  login,
+		Room:   room,
+		Secret: secret,
+	}
+	users.Store(ws, user)
+	if roomToAdd {
+		rooms.Store(room, r)
 	}
 	return nil
 }
@@ -81,12 +91,16 @@ func createNewRoom(name string) (*types.Room, error) {
 	return r, nil
 }
 
-func sendHelloOKMessage(ws *websocket.Conn, msg *types.Hello) error {
-	r, err := getRoom(msg.Room)
+func sendHelloOKMessage(ws *websocket.Conn, login string, room string) error {
+	r, err := getRoom(room)
 	if err != nil {
 		return err
 	}
-	okMsg, err := types.NewMessageHelloOK(msg.Login, r)
+	user, err := getUser(ws)
+	if err != nil {
+		return err
+	}
+	okMsg, err := types.NewMessageHelloOK(login, user.Secret, r)
 	if err != nil {
 		return err
 	}

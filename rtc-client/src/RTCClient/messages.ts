@@ -1,34 +1,37 @@
-export interface IWsWrapper {
-  Type: string
-  Message: string
-}
+import * as JWT from 'jsonwebtoken'
 
-export interface IHello {
+export interface IWsMessage {
+  Type: string
   Login: string
   Room: string
+  Token: string
+}
+
+export interface IServerMessage {
+  Type: string
+  Payload: string
 }
 
 export interface IHelloOK {
   Login: string
   Room: string
+  Secret: string
   Partners: string[]
 }
 
 export interface IOffer {
   Login: string
-  Room: string
   Partner: string
   Offer: string
   IsResponse: boolean
 }
 
 export interface IIceCandidate {
-  Room: string
   Partner: string
   Candidate: string
 }
 
 export interface IError {
-  Code: number,
+  Code: number
   Hint: string
 }

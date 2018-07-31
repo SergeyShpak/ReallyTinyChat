@@ -3,10 +3,29 @@
 	"ignore": "test",
 	"package": [
 		{
+			"path": "git",
+			"revision": "github.com:dgrijalva/jwt-go.git",
+			"version": "github.com:dgrijalva/jwt-go.git"
+		},
+		{
+			"checksumSHA1": "mUeojTdLEyzYOki70VUAeeYr/wQ=",
+			"path": "github.com/dgrijalva/jwt-go",
+			"revision": "0b96aaa707760d6ab28d9b9d1913ff5993328bae",
+			"revisionTime": "2018-07-19T21:18:23Z"
+		},
+		{
+			"path": "github.com/dgrijalva/jwt-go.git",
+			"revision": ""
+		},
+		{
 			"checksumSHA1": "QdSIO+gp41BqNti0ZDVdXvfDvDo=",
 			"path": "github.com/gorilla/websocket",
 			"revision": "5ed622c449da6d44c3c8329331ff47a9e5844f71",
 			"revisionTime": "2018-06-05T20:25:52Z"
+		},
+		{
+			"path": "https://github.com/dgrijalva/jwt-go.git",
+			"revision": ""
 		}
 	],
 	"rootPath": "github.com/SergeyShpak/ReallyTinyChat/rtc-server"

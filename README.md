@@ -44,6 +44,10 @@ npm install serve && \
 npx serve -s build
 ```
 
+### Adding a security exception
+
+RTC-client establishes a connection with RTC-server via TLS. The certificate that RTC-server uses when deployed locally is self-signed and, thus, invalid. To deploy and test the service locally you must add a security exception for the address `https://localhost:4443` in your browser. Check the browser documentation for details.
+
 ### Prerequisites
 
 For RTC-server:
