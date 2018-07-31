@@ -7,10 +7,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/config"
 	"github.com/SergeyShpak/ReallyTinyChat/rtc-server/handlers"
 )
 
 func main() {
+	_, err := config.Read("config.json")
+	if err != nil {
+		log.Println("error occurred: ", err)
+		return
+	}
 	run()
 }
 
