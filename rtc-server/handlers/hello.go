@@ -21,8 +21,8 @@ func HandleHello(ws *websocket.Conn, login string, room string) {
 			log.Println("error occurred: ", err)
 			return
 		}
-		ws.WriteJSON(errMsg)
 		log.Println(servErr)
+		ws.WriteJSON(errMsg)
 		return
 	}
 	if err := sendHelloOKMessage(ws, login, room); err != nil {
@@ -73,7 +73,6 @@ func addToConnections(ws *websocket.Conn, login string, room string) error {
 		Secret: secret,
 	}
 	users.Store(ws, user)
-	log.Println("Stored used: ", user)
 	if roomToAdd {
 		rooms.Store(room, r)
 	}
@@ -101,7 +100,6 @@ func sendHelloOKMessage(ws *websocket.Conn, login string, room string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("New secret for %s: %v\n", login, user.Secret)
 	okMsg, err := types.NewMessageHelloOK(login, user.Secret, r)
 	if err != nil {
 		return err

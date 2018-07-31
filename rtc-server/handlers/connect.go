@@ -143,7 +143,6 @@ func verifyMessage(ws *websocket.Conn, msg *types.Message) (payload string, err 
 	if err != nil {
 		return "", err
 	}
-	log.Println("User fetched: ", u)
 	// TODO: add checking
 	if u.Login != msg.Login || u.Room != msg.Room {
 

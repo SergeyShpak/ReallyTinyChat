@@ -3,7 +3,6 @@ package jwt
 import (
 	"crypto/rand"
 	"fmt"
-	"log"
 
 	jwtgo "github.com/dgrijalva/jwt-go"
 
@@ -23,13 +22,20 @@ func GenerateSecret() ([]byte, error) {
 }
 
 func Verify(msg *types.Message, secret []byte) (string, error) {
-	log.Println("Secret: ", secret)
-	t, err := jwtgo.Parse(msg.Token, func(t *jwtgo.Token) (interface{}, error) {
+	t, err := jwtgo.ParseWithClaims(msg.Token, &myCustomClaims{}, func(t *jwtgo.Token) (interface{}, error) {
 		return secret, nil
 	})
 	if err != nil {
 		return "", errors.NewServerError(401, fmt.Sprintf("error while parsing the JWT token: %v", err))
 	}
-	log.Println("Claims: ", t.Claims)
-	return "", nil
+	claims, ok := t.Claims.(*myCustomClaims)
+	if !ok {
+		return "", errors.NewServerError(401, "could not cast the JWT payload to the type with payload")
+	}
+	return claims.Payload, nil
+}
+
+type myCustomClaims struct {
+	Payload string `json:"Payload"`
+	jwtgo.StandardClaims
 }

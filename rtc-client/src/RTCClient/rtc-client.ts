@@ -280,7 +280,10 @@ export class RTCClient {
 
   private signIWsMessage(type: string, payload: any): Messages.IWsMessage {
     console.log("signing with secret: ", this.jwtSecret)
-    const token = JWT.sign(JSON.stringify(payload), this.jwtSecret)
+    const msgPayload = {
+      Payload: JSON.stringify(payload)
+    }
+    const token = JWT.sign(msgPayload, this.jwtSecret)
     const msg: Messages.IWsMessage = {
       Login: this.login,
       Room: this.room,
